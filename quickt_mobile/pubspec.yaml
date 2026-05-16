@@ -1,0 +1,47 @@
+name: quickt_mobile
+description: "QuickTZ - Bus Ticket Booking App"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # HTTP Client
+  dio: ^5.7.0
+
+  # Navigation
+  go_router: ^14.6.3
+
+  # Secure Storage (tokens)
+  flutter_secure_storage: ^9.2.4
+
+  # Local Preferences
+  shared_preferences: ^2.3.3
+
+  # QR Code display
+  qr_flutter: ^4.1.0
+
+  # Date/Time formatting
+  intl: ^0.20.2
+
+  # Image caching
+  cached_network_image: ^3.4.1
+
+  # Loading shimmer
+  shimmer: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
