@@ -1,3 +1,27 @@
+class PassengerInfo {
+  final String fullName;
+  final String phone;
+  final String idType;
+  final String idNumber;
+  final int bagsCount;
+  final bool hasExtraLargeLuggage;
+  final bool needsWheelchair;
+  final bool needsSpecialAssistance;
+  final String? dietaryNotes;
+
+  const PassengerInfo({
+    required this.fullName,
+    this.phone = '',
+    this.idType = 'national_id',
+    this.idNumber = '',
+    this.bagsCount = 1,
+    this.hasExtraLargeLuggage = false,
+    this.needsWheelchair = false,
+    this.needsSpecialAssistance = false,
+    this.dietaryNotes,
+  });
+}
+
 class BookingModel {
   final String id;
   final String userId;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
@@ -46,6 +47,12 @@ class NotificationsScreen extends ConsumerWidget {
         title: const Text(AppStrings.notifications,
             style: TextStyle(
                 color: AppColors.white, fontWeight: FontWeight.w700)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: AppColors.white),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
+        ),
         actions: [
           if (state.unreadCount > 0)
             TextButton(
@@ -146,9 +153,10 @@ class NotificationsScreen extends ConsumerWidget {
                                     shape: BoxShape.circle,
                                   ),
                                 ),
-                          onTap: () => ref
-                              .read(notificationProvider.notifier)
-                              .markAllRead(),
+                          onTap: () => context.push(
+                            '/notification/${n.id}',
+                            extra: n,
+                          ),
                         ),
                       );
                     },

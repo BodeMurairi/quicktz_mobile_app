@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "QuickTZ"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
+    GOOGLE_API_KEY: str = ""
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

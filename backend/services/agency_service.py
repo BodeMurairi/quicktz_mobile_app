@@ -5,6 +5,7 @@ from sqlalchemy import select
 from fastapi import HTTPException
 
 from models.agency import Agency
+from models.route import Route
 from schemas.agency import AgencyCreate
 
 
@@ -19,6 +20,13 @@ async def get_agency(db: AsyncSession, agency_id: str) -> Agency:
     if not agency:
         raise HTTPException(status_code=404, detail="Agency not found")
     return agency
+
+
+async def get_agency_routes(db: AsyncSession, agency_id: str) -> list[Route]:
+    result = await db.execute(
+        select(Route).where(Route.agency_id == agency_id, Route.is_active == True)
+    )
+    return list(result.scalars().all())
 
 
 async def create_agency(db: AsyncSession, data: AgencyCreate) -> Agency:

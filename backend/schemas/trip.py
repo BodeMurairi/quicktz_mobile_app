@@ -14,6 +14,10 @@ class TripResponse(BaseModel):
     price: float
     bus_number: Optional[str]
     status: str
+    has_wifi: bool = False
+    has_meal: bool = False
+    has_ac:   bool = False
+    has_usb:  bool = False
     route: Optional[RouteResponse] = None
 
     model_config = {"from_attributes": True}

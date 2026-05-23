@@ -17,8 +17,12 @@ class Trip(Base):
     price = Column(Float, nullable=False)
     bus_number = Column(String, nullable=True)
     status = Column(String, default="scheduled")  # scheduled, departed, completed, cancelled
+    has_wifi = Column(Boolean, default=False)
+    has_meal = Column(Boolean, default=False)
+    has_ac   = Column(Boolean, default=False)
+    has_usb  = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     route = relationship("Route", back_populates="trips")
-    bookings = relationship("Booking", back_populates="trip", lazy="selectin")
+    bookings = relationship("Booking", back_populates="trip", lazy="noload")

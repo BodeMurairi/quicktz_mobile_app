@@ -56,6 +56,48 @@ class NotificationNotifier extends StateNotifier<NotificationState> {
           .toList(),
     );
   }
+
+  void addLocalNotification({
+    required String title,
+    required String body,
+    required String type,
+  }) {
+    final n = NotificationModel(
+      id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+      userId: 'local',
+      title: title,
+      body: body,
+      type: type,
+      isRead: false,
+      createdAt: DateTime.now(),
+    );
+    state = state.copyWith(notifications: [n, ...state.notifications]);
+  }
+
+  Future<void> markRead(String id) async {
+    final already = state.notifications
+        .where((n) => n.id == id)
+        .any((n) => n.isRead);
+    if (already) return;
+    try {
+      await _repo.markRead(id);
+    } catch (_) {}
+    state = state.copyWith(
+      notifications: state.notifications
+          .map((n) => n.id != id
+              ? n
+              : NotificationModel(
+                  id: n.id,
+                  userId: n.userId,
+                  title: n.title,
+                  body: n.body,
+                  type: n.type,
+                  isRead: true,
+                  createdAt: n.createdAt,
+                ))
+          .toList(),
+    );
+  }
 }
 
 final notificationRepositoryProvider =

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/auth_models.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -104,14 +105,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   String _parseError(Object e) {
-    final msg = e.toString();
-    if (msg.contains('Invalid credentials')) return 'Invalid email/phone or password.';
-    if (msg.contains('already registered')) return 'This email/phone is already registered.';
-    if (msg.contains('SocketException') || msg.contains('Connection refused') ||
-        msg.contains('timeout') || msg.contains('Network') || msg.contains('OS Error')) {
-      return 'Cannot connect to server ($msg)';
+    if (e is DioException) {
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.unknown ||
+          e.type == DioExceptionType.connectionTimeout) {
+        return 'Cannot connect to server. Make sure your phone is on the same WiFi as your computer.';
+      }
+      if (e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        return 'Connection timed out. Please try again.';
+      }
+      final data = e.response?.data;
+      if (data is Map) {
+        final detail = data['detail']?.toString() ?? '';
+        if (detail.contains('Invalid credentials')) return 'Invalid email/phone or password.';
+        if (detail.contains('already registered')) return 'This email/phone is already registered.';
+        if (detail.isNotEmpty) return detail;
+      }
     }
-    return msg;
+    return 'Something went wrong. Please try again.';
   }
 }
 

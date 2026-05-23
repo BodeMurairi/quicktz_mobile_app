@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_keys.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../features/booking/data/models/booking_model.dart';
 import '../../../../features/booking/presentation/providers/booking_provider.dart';
@@ -43,6 +45,10 @@ class _MyTicketsScreenState extends ConsumerState<MyTicketsScreen>
       appBar: AppBar(
         backgroundColor: AppColors.darkPrimary,
         foregroundColor: AppColors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded, color: AppColors.white),
+          onPressed: () => appShellKey.currentState?.openDrawer(),
+        ),
         title: const Text(AppStrings.myTickets,
             style: TextStyle(
                 color: AppColors.white, fontWeight: FontWeight.w700)),
@@ -52,8 +58,8 @@ class _MyTicketsScreenState extends ConsumerState<MyTicketsScreen>
           labelColor: AppColors.white,
           unselectedLabelColor: AppColors.secondary,
           tabs: const [
-            Tab(text: 'Tickets'),
-            Tab(text: 'Bookings'),
+            Tab(icon: Icon(Icons.confirmation_number_outlined, size: 18), text: 'Tickets'),
+            Tab(icon: Icon(Icons.receipt_long_outlined, size: 18), text: 'Payments'),
           ],
         ),
       ),
@@ -62,17 +68,19 @@ class _MyTicketsScreenState extends ConsumerState<MyTicketsScreen>
           : TabBarView(
               controller: _tabController,
               children: [
-                _TicketsList(tickets: state.tickets),
-                _BookingsList(bookings: state.bookings),
+                _TicketsTab(tickets: state.tickets),
+                _PaymentsTab(bookings: state.bookings),
               ],
             ),
     );
   }
 }
 
-class _TicketsList extends StatelessWidget {
+// ── Tickets tab ───────────────────────────────────────────────────────────────
+
+class _TicketsTab extends StatelessWidget {
   final List<TicketModel> tickets;
-  const _TicketsList({required this.tickets});
+  const _TicketsTab({required this.tickets});
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +129,18 @@ class _TicketCard extends StatelessWidget {
     }
   }
 
+  void _copyTicket(BuildContext context) {
+    Clipboard.setData(ClipboardData(text: ticket.ticketCode));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Ticket code copied'),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -141,8 +161,8 @@ class _TicketCard extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 8,
-              height: 80,
+              width: 6,
+              height: 88,
               decoration: BoxDecoration(
                 color: _statusColor,
                 borderRadius: const BorderRadius.only(
@@ -153,11 +173,19 @@ class _TicketCard extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
                 child: Row(
                   children: [
-                    const Icon(Icons.qr_code_2_rounded,
-                        color: AppColors.primary, size: 36),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.qr_code_2_rounded,
+                          color: AppColors.primary, size: 26),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -167,7 +195,7 @@ class _TicketCard extends StatelessWidget {
                               style: const TextStyle(
                                   color: AppColors.darkPrimary,
                                   fontWeight: FontWeight.w700,
-                                  fontSize: 15,
+                                  fontSize: 14,
                                   fontFamily: 'monospace')),
                           const SizedBox(height: 4),
                           Text(
@@ -178,20 +206,39 @@ class _TicketCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _statusColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        ticket.status.toUpperCase(),
-                        style: TextStyle(
-                            color: _statusColor,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700),
-                      ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _statusColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            ticket.status.toUpperCase(),
+                            style: TextStyle(
+                                color: _statusColor,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        GestureDetector(
+                          onTap: () => _copyTicket(context),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.download_rounded,
+                                size: 16, color: AppColors.primary),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -204,70 +251,137 @@ class _TicketCard extends StatelessWidget {
   }
 }
 
-class _BookingsList extends StatelessWidget {
+// ── Payments tab ──────────────────────────────────────────────────────────────
+
+class _PaymentsTab extends StatelessWidget {
   final List<BookingModel> bookings;
-  const _BookingsList({required this.bookings});
+  const _PaymentsTab({required this.bookings});
 
   @override
   Widget build(BuildContext context) {
     if (bookings.isEmpty) {
       return const Center(
-        child: Text('No bookings yet',
-            style: TextStyle(color: AppColors.grey)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.receipt_long_outlined,
+                color: AppColors.secondary, size: 64),
+            SizedBox(height: 16),
+            Text('No payments yet',
+                style: TextStyle(
+                    color: AppColors.textDark,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500)),
+            SizedBox(height: 8),
+            Text('Completed payments will appear here',
+                style: TextStyle(color: AppColors.grey, fontSize: 13)),
+          ],
+        ),
       );
     }
     return ListView.builder(
       padding: const EdgeInsets.all(20),
       itemCount: bookings.length,
-      itemBuilder: (_, i) {
-        final b = bookings[i];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
+      itemBuilder: (_, i) => _PaymentCard(booking: bookings[i]),
+    );
+  }
+}
+
+class _PaymentCard extends StatelessWidget {
+  final BookingModel booking;
+  const _PaymentCard({required this.booking});
+
+  Color get _statusColor =>
+      booking.isConfirmed ? AppColors.success : AppColors.error;
+
+  String get _statusLabel =>
+      booking.isConfirmed ? 'SUCCESS' : 'FAILED';
+
+  IconData get _statusIcon => booking.isConfirmed
+      ? Icons.check_circle_rounded
+      : Icons.cancel_rounded;
+
+  @override
+  Widget build(BuildContext context) {
+    final dateFmt = DateFormat('d MMM yyyy, HH:mm');
+    final amtFmt = NumberFormat('#,###');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          child: Row(
-            children: [
-              const Icon(Icons.receipt_long_outlined,
-                  color: AppColors.secondary, size: 28),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(b.passengerName,
-                        style: const TextStyle(
-                            color: AppColors.darkPrimary,
-                            fontWeight: FontWeight.w600)),
-                    Text('XOF ${b.totalPrice.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                            color: AppColors.primary, fontSize: 13)),
-                  ],
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _statusColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(_statusIcon, color: _statusColor, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  booking.passengerName,
+                  style: const TextStyle(
+                      color: AppColors.darkPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14),
                 ),
+                const SizedBox(height: 3),
+                Text(
+                  dateFmt.format(booking.createdAt),
+                  style: const TextStyle(
+                      color: AppColors.grey, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                'XOF ${amtFmt.format(booking.totalPrice.toInt())}',
+                style: const TextStyle(
+                    color: AppColors.darkPrimary,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15),
               ),
+              const SizedBox(height: 4),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: b.isConfirmed
-                      ? AppColors.success.withValues(alpha: 0.1)
-                      : AppColors.error.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(6),
+                  color: _statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(5),
                 ),
                 child: Text(
-                  b.status.toUpperCase(),
+                  _statusLabel,
                   style: TextStyle(
-                      color: b.isConfirmed ? AppColors.success : AppColors.error,
-                      fontSize: 10,
+                      color: _statusColor,
+                      fontSize: 9,
                       fontWeight: FontWeight.w700),
                 ),
               ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }

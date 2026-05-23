@@ -2,12 +2,20 @@ class AgencyModel {
   final String id;
   final String name;
   final String? logoUrl;
+  final String? description;
+  final String? phone;
+  final String? email;
+  final String? address;
   final bool isVerified;
 
   AgencyModel({
     required this.id,
     required this.name,
     this.logoUrl,
+    this.description,
+    this.phone,
+    this.email,
+    this.address,
     this.isVerified = false,
   });
 
@@ -15,6 +23,10 @@ class AgencyModel {
         id: json['id'],
         name: json['name'],
         logoUrl: json['logo_url'],
+        description: json['description'],
+        phone: json['contact_phone'],
+        email: json['contact_email'],
+        address: json['address'],
         isVerified: json['is_verified'] ?? false,
       );
 }
@@ -24,6 +36,7 @@ class RouteModel {
   final String origin;
   final String destination;
   final int? durationMinutes;
+  final double? distanceKm;
   final AgencyModel? agency;
 
   RouteModel({
@@ -31,6 +44,7 @@ class RouteModel {
     required this.origin,
     required this.destination,
     this.durationMinutes,
+    this.distanceKm,
     this.agency,
   });
 
@@ -39,6 +53,7 @@ class RouteModel {
         origin: json['origin'],
         destination: json['destination'],
         durationMinutes: json['duration_minutes'],
+        distanceKm: (json['distance_km'] as num?)?.toDouble(),
         agency: json['agency'] != null
             ? AgencyModel.fromJson(json['agency'])
             : null,
@@ -55,6 +70,10 @@ class TripModel {
   final double price;
   final String? busNumber;
   final String status;
+  final bool hasWifi;
+  final bool hasMeal;
+  final bool hasAc;
+  final bool hasUsb;
   final RouteModel? route;
 
   TripModel({
@@ -67,6 +86,10 @@ class TripModel {
     required this.price,
     this.busNumber,
     required this.status,
+    this.hasWifi = false,
+    this.hasMeal = false,
+    this.hasAc = false,
+    this.hasUsb = false,
     this.route,
   });
 
@@ -82,6 +105,10 @@ class TripModel {
         price: (json['price'] as num).toDouble(),
         busNumber: json['bus_number'],
         status: json['status'],
+        hasWifi: json['has_wifi'] ?? false,
+        hasMeal: json['has_meal'] ?? false,
+        hasAc: json['has_ac'] ?? false,
+        hasUsb: json['has_usb'] ?? false,
         route: json['route'] != null
             ? RouteModel.fromJson(json['route'])
             : null,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/constants/app_colors.dart';
+import 'core/constants/app_keys.dart';
 import 'features/auth/presentation/screens/splash_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/register_screen.dart';
@@ -10,35 +11,36 @@ import 'features/home/presentation/screens/home_screen.dart';
 import 'features/search/presentation/screens/search_screen.dart';
 import 'features/search/presentation/screens/search_results_screen.dart';
 import 'features/booking/presentation/screens/trip_detail_screen.dart';
+import 'features/booking/presentation/screens/passenger_info_screen.dart';
 import 'features/booking/presentation/screens/booking_confirmation_screen.dart';
+import 'features/booking/presentation/screens/payment_success_screen.dart';
 import 'features/tickets/presentation/screens/my_tickets_screen.dart';
 import 'features/tickets/presentation/screens/ticket_detail_screen.dart';
 import 'features/notifications/presentation/screens/notifications_screen.dart';
+import 'features/notifications/presentation/screens/notification_detail_screen.dart';
+import 'features/notifications/data/models/notification_model.dart';
 import 'features/profile/presentation/screens/profile_screen.dart';
+import 'features/agency/presentation/screens/agency_screen.dart';
+import 'features/trip_planner/presentation/screens/trip_planner_screen.dart';
+import 'features/chat/presentation/screens/chatbot_screen.dart';
+import 'features/settings/presentation/screens/settings_screen.dart';
+import 'shared/widgets/app_drawer.dart';
 
 final _router = GoRouter(
   initialLocation: '/',
   routes: [
-    GoRoute(
-      path: '/',
-      builder: (_, _) => const SplashScreen(),
-    ),
-    GoRoute(
-      path: '/login',
-      builder: (_, _) => const LoginScreen(),
-    ),
-    GoRoute(
-      path: '/register',
-      builder: (_, _) => const RegisterScreen(),
-    ),
-    GoRoute(
-      path: '/search-results',
-      builder: (_, _) => const SearchResultsScreen(),
-    ),
+    GoRoute(path: '/', builder: (_, _) => const SplashScreen()),
+    GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+    GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
+    GoRoute(path: '/search-results', builder: (_, _) => const SearchResultsScreen()),
     GoRoute(
       path: '/trip/:id',
+      builder: (_, state) => TripDetailScreen(tripId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/passenger-info/:tripId',
       builder: (_, state) =>
-          TripDetailScreen(tripId: state.pathParameters['id']!),
+          PassengerInfoScreen(tripId: state.pathParameters['tripId']!),
     ),
     GoRoute(
       path: '/booking/:tripId',
@@ -46,61 +48,70 @@ final _router = GoRouter(
           BookingConfirmationScreen(tripId: state.pathParameters['tripId']!),
     ),
     GoRoute(
+      path: '/booking-success/:bookingId',
+      builder: (_, state) =>
+          PaymentSuccessScreen(bookingId: state.pathParameters['bookingId']!),
+    ),
+    GoRoute(
       path: '/ticket/:id',
       builder: (_, state) =>
           TicketDetailScreen(ticketId: state.pathParameters['id']!),
     ),
+    GoRoute(path: '/trip-planner', builder: (_, _) => const TripPlannerScreen()),
+    GoRoute(
+      path: '/agency/:id',
+      builder: (_, state) =>
+          AgencyScreen(agencyId: state.pathParameters['id']!),
+    ),
+    // Full-screen routes (no bottom nav) — accessible via drawer
+    GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
+    GoRoute(
+      path: '/notification/:id',
+      builder: (_, state) => NotificationDetailScreen(
+        notificationId: state.pathParameters['id']!,
+        notification: state.extra as NotificationModel?,
+      ),
+    ),
+    GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+    GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
+    GoRoute(path: '/chat', builder: (_, _) => const ChatbotScreen()),
+    // Shell with 3-item bottom nav
     ShellRoute(
-      builder: (_, state, child) => _MainShell(location: state.uri.path, child: child),
+      builder: (_, state, child) =>
+          _MainShell(location: state.uri.path, child: child),
       routes: [
-        GoRoute(
-          path: '/home',
-          builder: (_, _) => const HomeScreen(),
-        ),
-        GoRoute(
-          path: '/search',
-          builder: (_, _) => const SearchScreen(),
-        ),
-        GoRoute(
-          path: '/tickets',
-          builder: (_, _) => const MyTicketsScreen(),
-        ),
-        GoRoute(
-          path: '/notifications',
-          builder: (_, _) => const NotificationsScreen(),
-        ),
-        GoRoute(
-          path: '/profile',
-          builder: (_, _) => const ProfileScreen(),
-        ),
+        GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
+        GoRoute(path: '/search', builder: (_, _) => const SearchScreen()),
+        GoRoute(path: '/tickets', builder: (_, _) => const MyTicketsScreen()),
       ],
     ),
   ],
 );
 
+// ── Shell ─────────────────────────────────────────────────────────────────────
+
 class _MainShell extends StatelessWidget {
   final String location;
   final Widget child;
-
   const _MainShell({required this.location, required this.child});
 
   int get _currentIndex {
     if (location.startsWith('/home')) return 0;
     if (location.startsWith('/search')) return 1;
     if (location.startsWith('/tickets')) return 2;
-    if (location.startsWith('/notifications')) return 3;
-    if (location.startsWith('/profile')) return 4;
     return 0;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: appShellKey,
+      drawer: const AppDrawer(),
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) {
-          const paths = ['/home', '/search', '/tickets', '/notifications', '/profile'];
+          const paths = ['/home', '/search', '/tickets'];
           context.go(paths[i]);
         },
         backgroundColor: AppColors.white,
@@ -123,23 +134,13 @@ class _MainShell extends StatelessWidget {
                 color: AppColors.primary),
             label: 'Tickets',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon:
-                Icon(Icons.notifications_rounded, color: AppColors.primary),
-            label: 'Alerts',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon:
-                Icon(Icons.person_rounded, color: AppColors.primary),
-            label: 'Profile',
-          ),
         ],
       ),
     );
   }
 }
+
+// ── App ───────────────────────────────────────────────────────────────────────
 
 class QuickTZApp extends ConsumerWidget {
   const QuickTZApp({super.key});

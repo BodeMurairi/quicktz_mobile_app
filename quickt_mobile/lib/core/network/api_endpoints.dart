@@ -2,10 +2,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 class ApiEndpoints {
   // Web (Docker): Nginx proxies /api/ → backend container — use relative origin.
-  // Mobile (emulator): 10.0.2.2 = host machine from Android emulator.
-  // Mobile (physical device): set to your machine's LAN IP, e.g. http://192.168.1.x:8000/api/v1
+  // Mobile on same WiFi: uses LAN IP directly (avoids carrier DNS blocks on ngrok).
+  // Mobile on different network: switch back to ngrok URL below.
   static String get baseUrl =>
-      kIsWeb ? '/api/v1' : 'https://unparched-morris-unfinishable.ngrok-free.dev/api/v1';
+      kIsWeb ? '/api/v1' : 'http://192.168.1.77:8000/api/v1';
 
   // Auth
   static const String register = '/auth/register';
@@ -20,6 +20,7 @@ class ApiEndpoints {
   // Agencies
   static const String agencies = '/agencies';
   static String agencyDetail(String id) => '/agencies/$id';
+  static String agencyRoutes(String id) => '/agencies/$id/routes';
 
   // Trips
   static const String trips = '/trips';
@@ -36,6 +37,9 @@ class ApiEndpoints {
   // Tickets
   static const String tickets = '/tickets';
   static String ticketDetail(String id) => '/tickets/$id';
+
+  // AI Agent
+  static const String agentChat = '/agent/chat';
 
   // Notifications
   static const String notifications = '/notifications';

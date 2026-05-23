@@ -4,7 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from data.database import get_db
 from schemas.agency import AgencyResponse, AgencyCreate
-from services.agency_service import list_agencies, get_agency, create_agency
+from schemas.route import RouteSimpleResponse
+from services.agency_service import list_agencies, get_agency, get_agency_routes, create_agency
 
 router = APIRouter()
 
@@ -17,6 +18,11 @@ async def get_agencies(db: AsyncSession = Depends(get_db)):
 @router.get("/{agency_id}", response_model=AgencyResponse)
 async def get_agency_detail(agency_id: str, db: AsyncSession = Depends(get_db)):
     return await get_agency(db, agency_id)
+
+
+@router.get("/{agency_id}/routes", response_model=list[RouteSimpleResponse])
+async def get_routes_for_agency(agency_id: str, db: AsyncSession = Depends(get_db)):
+    return await get_agency_routes(db, agency_id)
 
 
 @router.post("", response_model=AgencyResponse, status_code=201)

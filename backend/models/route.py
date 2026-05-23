@@ -18,4 +18,4 @@ class Route(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     agency = relationship("Agency", back_populates="routes")
-    trips = relationship("Trip", back_populates="route", lazy="selectin")
+    trips = relationship("Trip", back_populates="route", lazy="noload")

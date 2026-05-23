@@ -79,12 +79,17 @@ Pods/
 
 # macOS
 **/macos/Flutter/ephemeral/
+**/macos/Flutter/GeneratedPluginRegistrant.swift
 
 # Windows
 **/windows/flutter/ephemeral/
+**/windows/flutter/generated_plugin_registrant.cc
+**/windows/flutter/generated_plugins.cmake
 
 # Linux
 **/linux/flutter/ephemeral/
+**/linux/flutter/generated_plugin_registrant.cc
+**/linux/flutter/generated_plugins.cmake
 
 # Web
 **/web/flutter.js (generated)
@@ -102,6 +107,9 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# ─── Binary / media assets ────────────────────────────────────────────────────
+*.pdf
 
 # ─── Secrets ──────────────────────────────────────────────────────────────────
 *.pem

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_keys.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_button.dart';
@@ -75,6 +76,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.darkPrimary,
         foregroundColor: AppColors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded, color: AppColors.white),
+          onPressed: () => appShellKey.currentState?.openDrawer(),
+        ),
         title: const Text(AppStrings.searchTrips,
             style: TextStyle(
                 color: AppColors.white, fontWeight: FontWeight.w700)),

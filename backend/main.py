@@ -8,7 +8,7 @@ from config.settings import settings
 from data.database import engine, Base
 import models  # noqa: F401 — registers all ORM models with Base
 
-from controller import auth, users, agencies, trips, bookings, tickets, notifications
+from controller import auth, users, agencies, trips, bookings, tickets, notifications, agent_chat
 
 
 @asynccontextmanager
@@ -42,6 +42,7 @@ app.include_router(trips.router, prefix=f"{PREFIX}/trips", tags=["Trips"])
 app.include_router(bookings.router, prefix=f"{PREFIX}/bookings", tags=["Bookings"])
 app.include_router(tickets.router, prefix=f"{PREFIX}/tickets", tags=["Tickets"])
 app.include_router(notifications.router, prefix=f"{PREFIX}/notifications", tags=["Notifications"])
+app.include_router(agent_chat.router, prefix=f"{PREFIX}/agent", tags=["AI Agent"])
 
 
 @app.get("/", tags=["Health"])
@@ -51,6 +52,7 @@ async def root():
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
+        host="0.0.0.0",
         port=8000,
         reload=True
     )

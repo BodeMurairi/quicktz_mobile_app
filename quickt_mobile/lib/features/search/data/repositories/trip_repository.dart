@@ -38,4 +38,14 @@ class TripRepository {
     final response = await _dio.get(ApiEndpoints.agencies);
     return (response.data as List).map((e) => AgencyModel.fromJson(e)).toList();
   }
+
+  Future<AgencyModel> getAgencyDetail(String agencyId) async {
+    final response = await _dio.get(ApiEndpoints.agencyDetail(agencyId));
+    return AgencyModel.fromJson(response.data);
+  }
+
+  Future<List<RouteModel>> getAgencyRoutes(String agencyId) async {
+    final response = await _dio.get(ApiEndpoints.agencyRoutes(agencyId));
+    return (response.data as List).map((e) => RouteModel.fromJson(e)).toList();
+  }
 }

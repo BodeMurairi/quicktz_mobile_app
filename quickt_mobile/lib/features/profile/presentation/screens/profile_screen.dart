@@ -21,6 +21,12 @@ class ProfileScreen extends ConsumerWidget {
             expandedHeight: 200,
             pinned: true,
             backgroundColor: AppColors.darkPrimary,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                  color: AppColors.white),
+              onPressed: () =>
+                  context.canPop() ? context.pop() : context.go('/home'),
+            ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration:
