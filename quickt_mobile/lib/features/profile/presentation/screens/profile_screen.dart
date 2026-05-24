@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/widgets/app_button.dart';
 
@@ -12,6 +12,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
+    final l10n = ref.watch(l10nProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -64,14 +65,14 @@ class ProfileScreen extends ConsumerWidget {
                           color: AppColors.warning.withValues(alpha: 0.9),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.star_rounded,
+                            const Icon(Icons.star_rounded,
                                 color: AppColors.white, size: 12),
-                            SizedBox(width: 4),
-                            Text(AppStrings.premiumMember,
-                                style: TextStyle(
+                            const SizedBox(width: 4),
+                            Text(l10n.premiumMember,
+                                style: const TextStyle(
                                     color: AppColors.white,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700)),
@@ -95,12 +96,12 @@ class ProfileScreen extends ConsumerWidget {
                   _menuCard([
                     _MenuItem(
                       icon: Icons.confirmation_number_outlined,
-                      label: AppStrings.bookingHistory,
+                      label: l10n.bookingHistory,
                       onTap: () => context.go('/tickets'),
                     ),
                     _MenuItem(
                       icon: Icons.notifications_outlined,
-                      label: AppStrings.notifications,
+                      label: l10n.notifications,
                       onTap: () => context.go('/notifications'),
                     ),
                   ]),
@@ -115,28 +116,29 @@ class ProfileScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.workspace_premium_rounded,
+                              const Icon(Icons.workspace_premium_rounded,
                                   color: AppColors.white, size: 20),
-                              SizedBox(width: 8),
-                              Text('Go Premium',
-                                  style: TextStyle(
+                              const SizedBox(width: 8),
+                              Text(l10n.upgradeToPremium,
+                                  style: const TextStyle(
                                       color: AppColors.white,
                                       fontWeight: FontWeight.w700,
                                       fontSize: 16)),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'Priority booking · Flexible cancellation · Exclusive deals',
-                            style: TextStyle(
-                                color: AppColors.white,
-                                fontSize: 12),
+                          Text(
+                            l10n.isFr
+                                ? 'Réservation prioritaire · Annulation flexible · Offres exclusives'
+                                : 'Priority booking · Flexible cancellation · Exclusive deals',
+                            style: const TextStyle(
+                                color: AppColors.white, fontSize: 12),
                           ),
                           const SizedBox(height: 12),
                           AppButton(
-                            label: AppStrings.upgradeToPremium,
+                            label: l10n.upgradeToPremium,
                             color: AppColors.white,
                             onPressed: () {},
                           ),
@@ -148,7 +150,7 @@ class ProfileScreen extends ConsumerWidget {
                   _menuCard([
                     _MenuItem(
                       icon: Icons.logout_rounded,
-                      label: AppStrings.logout,
+                      label: l10n.logOut,
                       color: AppColors.error,
                       onTap: () async {
                         await ref.read(authProvider.notifier).logout();

@@ -107,6 +107,7 @@ class AgentChatResult {
   final String? ticketCode;
   final List<TripOption>? tripSuggestions;
   final BookingPreview? bookingPreview;
+  final List<String>? chips;
 
   const AgentChatResult({
     required this.response,
@@ -116,6 +117,7 @@ class AgentChatResult {
     this.ticketCode,
     this.tripSuggestions,
     this.bookingPreview,
+    this.chips,
   });
 
   factory AgentChatResult.fromJson(Map<String, dynamic> json) {
@@ -133,6 +135,7 @@ class AgentChatResult {
           .toList(),
       bookingPreview:
           previewJson != null ? BookingPreview.fromJson(previewJson) : null,
+      chips: (json['chips'] as List<dynamic>?)?.cast<String>(),
     );
   }
 

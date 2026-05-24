@@ -1,3 +1,4 @@
+import re
 import uuid
 from typing import List, Optional
 
@@ -17,6 +18,30 @@ from models.user import User
 
 router = APIRouter()
 
+# ── Chips extraction ───────────────────────────────────────────────────────────
+
+_CHIPS_RE = re.compile(r'\[CHIPS\](.*?)\[/CHIPS\]', re.DOTALL)
+
+
+def _extract_chips(text: str) -> tuple[str, Optional[List[str]]]:
+    """
+    Strip every [CHIPS]...[/CHIPS] block from the agent response,
+    return (cleaned_text, chips_list).  Returns None for chips if none found.
+    """
+    chips: List[str] = []
+
+    def _replace(m: re.Match) -> str:
+        items = [c.strip() for c in m.group(1).split('|') if c.strip()]
+        chips.extend(items)
+        return ''
+
+    clean = _CHIPS_RE.sub(_replace, text).strip()
+    # Collapse triple-plus blank lines left after removal
+    clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
+    return clean, chips if chips else None
+
+
+# ── Request / response models ──────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
     message: str
@@ -63,7 +88,10 @@ class ChatResponse(BaseModel):
     ticket_code: Optional[str] = None
     trip_suggestions: Optional[List[TripOption]] = None
     booking_preview: Optional[BookingPreview] = None
+    chips: Optional[List[str]] = None
 
+
+# ── Endpoint ───────────────────────────────────────────────────────────────────
 
 @router.post("/chat", response_model=ChatResponse)
 async def agent_chat(
@@ -75,10 +103,16 @@ async def agent_chat(
 
     session_id = body.session_id or str(uuid.uuid4())
 
-    # Reset all per-request surface vars
-    last_booking_result.set(None)
-    last_trip_suggestions.set(None)
-    pending_booking_preview.set(None)
+    # Create fresh mutable containers for this request and bind them so that
+    # tool mutations (in-place .extend / .update / .clear) are visible here
+    # after run_async completes — ContextVar.set() in child tasks is NOT
+    # visible to the parent context, but mutating the shared object IS.
+    _trips_buf: list = []
+    _booking_buf: dict = {}
+    _preview_buf: dict = {}
+    last_trip_suggestions.set(_trips_buf)
+    last_booking_result.set(_booking_buf)
+    pending_booking_preview.set(_preview_buf)
     current_user_id.set(str(user.id))
 
     response_text = ""
@@ -103,13 +137,17 @@ async def agent_chat(
     if not response_text:
         response_text = "I'm sorry, I couldn't process your request right now. Please try again."
 
-    booking_data = last_booking_result.get()
-    suggestions_raw = last_trip_suggestions.get()
-    preview_raw = pending_booking_preview.get()
+    # Strip embedded chips from response text and collect them separately
+    response_text, chips = _extract_chips(response_text)
+
+    # Read the mutable containers that tools may have populated in-place.
+    booking_data  = last_booking_result.get()    # dict, may be empty {}
+    suggestions   = last_trip_suggestions.get()  # list, may be empty []
+    preview_raw   = pending_booking_preview.get()  # dict, may be empty {}
 
     # Build trip suggestion objects
     trip_options: Optional[List[TripOption]] = None
-    if suggestions_raw:
+    if suggestions:
         trip_options = [
             TripOption(
                 id=t["id"],
@@ -122,10 +160,10 @@ async def agent_chat(
                 available_seats=t["available_seats"],
                 amenities=TripAmenities(**t.get("amenities", {})),
             )
-            for t in suggestions_raw
+            for t in suggestions
         ]
 
-    # Build booking preview object (only if no booking was confirmed this turn)
+    # Build booking preview (only when no confirmed booking this turn)
     booking_preview: Optional[BookingPreview] = None
     if preview_raw and not booking_data:
         booking_preview = BookingPreview(
@@ -149,4 +187,5 @@ async def agent_chat(
         ticket_code=booking_data.get("ticket_code") if booking_data else None,
         trip_suggestions=trip_options,
         booking_preview=booking_preview,
+        chips=chips,
     )

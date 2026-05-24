@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
@@ -46,6 +46,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
+    final l10n = ref.watch(l10nProvider);
 
     ref.listen<AuthState>(authProvider, (_, next) {
       if (next.status == AuthStatus.authenticated) context.go('/home');
@@ -67,18 +68,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       color: AppColors.darkPrimary),
                 ),
                 const SizedBox(height: 16),
-                const Text('Create Account',
-                    style: TextStyle(
+                Text(l10n.createAccount,
+                    style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w700,
                         color: AppColors.darkPrimary)),
                 const SizedBox(height: 6),
-                const Text('Join QuickTZ and travel smarter',
-                    style: TextStyle(fontSize: 15, color: AppColors.grey)),
+                Text(l10n.tagline,
+                    style:
+                        const TextStyle(fontSize: 15, color: AppColors.grey)),
                 const SizedBox(height: 32),
                 AppTextField(
                   controller: _nameCtrl,
-                  label: AppStrings.fullName,
+                  label: l10n.fullName,
                   hint: 'Kofi Mensah',
                   prefixIcon: Icons.person_outline,
                   validator: Validators.fullName,
@@ -92,9 +94,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   padding: const EdgeInsets.all(4),
                   child: Row(
                     children: [
-                      _toggleBtn('Email', _useEmail,
+                      _toggleBtn(l10n.email, _useEmail,
                           () => setState(() => _useEmail = true)),
-                      _toggleBtn('Phone', !_useEmail,
+                      _toggleBtn(l10n.phoneNumber, !_useEmail,
                           () => setState(() => _useEmail = false)),
                     ],
                   ),
@@ -103,7 +105,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 if (_useEmail)
                   AppTextField(
                     controller: _emailCtrl,
-                    label: AppStrings.email,
+                    label: l10n.email,
                     hint: 'you@example.com',
                     prefixIcon: Icons.email_outlined,
                     keyboardType: TextInputType.emailAddress,
@@ -112,7 +114,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 else
                   AppTextField(
                     controller: _phoneCtrl,
-                    label: AppStrings.phoneNumber,
+                    label: l10n.phoneNumber,
                     hint: '+228 90 00 00 00',
                     prefixIcon: Icons.phone_outlined,
                     keyboardType: TextInputType.phone,
@@ -121,8 +123,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 16),
                 AppTextField(
                   controller: _passwordCtrl,
-                  label: AppStrings.password,
-                  hint: 'Min. 6 characters',
+                  label: l10n.password,
+                  hint: l10n.isFr ? 'Min. 6 caractères' : 'Min. 6 characters',
                   prefixIcon: Icons.lock_outline,
                   obscureText: _obscurePassword,
                   validator: Validators.password,
@@ -159,7 +161,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ],
                 const SizedBox(height: 28),
                 AppButton(
-                  label: AppStrings.register,
+                  label: l10n.createAccount,
                   onPressed: _submit,
                   isLoading: auth.isLoading,
                 ),
@@ -167,12 +169,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(AppStrings.alreadyHaveAccount,
-                        style: TextStyle(color: AppColors.grey)),
+                    Text(l10n.alreadyHaveAccount,
+                        style: const TextStyle(color: AppColors.grey)),
                     GestureDetector(
                       onTap: () => context.go('/login'),
-                      child: const Text(AppStrings.signIn,
-                          style: TextStyle(
+                      child: Text(l10n.signIn,
+                          style: const TextStyle(
                               color: AppColors.primary,
                               fontWeight: FontWeight.w600)),
                     ),

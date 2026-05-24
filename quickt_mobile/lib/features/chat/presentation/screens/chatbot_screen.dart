@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_keys.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../providers/chat_provider.dart';
@@ -30,6 +29,17 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
     final text = (preset ?? _ctrl.text).trim();
     if (text.isEmpty) return;
     _ctrl.clear();
+
+    // Intercept navigation-only chips — handle locally, don't forward to AI.
+    if (text == 'View my tickets 🎫') {
+      context.go('/tickets');
+      return;
+    }
+    if (text == 'Back to main menu' || text == 'Back to main menu 🏠') {
+      ref.read(chatProvider.notifier).reset();
+      return;
+    }
+
     ref.read(chatProvider.notifier).sendMessage(text);
     _scrollToBottom();
   }
@@ -91,8 +101,11 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
         backgroundColor: AppColors.darkPrimary,
         foregroundColor: AppColors.white,
         leading: IconButton(
-          icon: const Icon(Icons.menu_rounded, color: AppColors.white),
-          onPressed: () => appShellKey.currentState?.openDrawer(),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: AppColors.white),
+          tooltip: 'Back',
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
         ),
         title: Row(
           children: [
@@ -110,27 +123,27 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('QuickTZ AI',
+                Text('QuickTZ Travel Companion',
                     style: TextStyle(
                         color: AppColors.white,
                         fontWeight: FontWeight.w700,
-                        fontSize: 15)),
-                Text('Powered by Gemini',
+                        fontSize: 14)),
+                Text('Your personal trip assistant',
                     style:
-                        TextStyle(color: AppColors.secondary, fontSize: 11)),
+                        TextStyle(color: AppColors.secondary, fontSize: 10)),
               ],
             ),
           ],
         ),
         actions: [
-          if (state.history.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.history_rounded, color: AppColors.white),
-              tooltip: 'Chat history',
-              onPressed: () => _showHistory(context),
-            ),
           IconButton(
-            icon: const Icon(Icons.add_comment_outlined, color: AppColors.white),
+            icon: const Icon(Icons.history_rounded, color: AppColors.white),
+            tooltip: 'Chat history',
+            onPressed: () => _showHistory(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_comment_outlined,
+                color: AppColors.white),
             tooltip: 'New conversation',
             onPressed: () => ref.read(chatProvider.notifier).reset(),
           ),
@@ -161,6 +174,8 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
                         onConfirm: () => _send(
                           '✅ Confirmed — please book my trip ${msg.bookingPreview!.tripId}',
                         ),
+                        onEdit: () =>
+                            _send('I want to edit my booking details'),
                         onCancel: () =>
                             _send('Cancel this booking, I changed my mind.'),
                       ),
@@ -500,11 +515,13 @@ class _AmenityDot extends StatelessWidget {
 class _BookingPreviewCard extends StatelessWidget {
   final BookingPreview preview;
   final VoidCallback onConfirm;
+  final VoidCallback onEdit;
   final VoidCallback onCancel;
 
   const _BookingPreviewCard({
     required this.preview,
     required this.onConfirm,
+    required this.onEdit,
     required this.onCancel,
   });
 
@@ -641,40 +658,64 @@ class _BookingPreviewCard extends StatelessWidget {
           // Action buttons
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onCancel,
+                // Edit row — full width
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_rounded, size: 16),
+                    label: const Text('Edit Details',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.grey,
+                      foregroundColor: AppColors.secondary,
                       side: BorderSide(
-                          color: AppColors.grey.withValues(alpha: 0.4)),
+                          color: AppColors.secondary.withValues(alpha: 0.5)),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
-                      minimumSize: const Size(double.infinity, 44),
+                      minimumSize: const Size(double.infinity, 42),
                     ),
-                    child: const Text('Cancel',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: ElevatedButton.icon(
-                    onPressed: onConfirm,
-                    icon: const Icon(Icons.check_circle_rounded, size: 18),
-                    label: const Text('Confirm Booking',
-                        style: TextStyle(fontWeight: FontWeight.w700)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.white,
-                      elevation: 0,
-                      minimumSize: const Size(double.infinity, 44),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                const SizedBox(height: 8),
+                // Cancel / Confirm row
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: onCancel,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.grey,
+                          side: BorderSide(
+                              color: AppColors.grey.withValues(alpha: 0.4)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          minimumSize: const Size(double.infinity, 44),
+                        ),
+                        child: const Text('Cancel',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        onPressed: onConfirm,
+                        icon: const Icon(Icons.check_circle_rounded, size: 18),
+                        label: const Text('Confirm Booking',
+                            style: TextStyle(fontWeight: FontWeight.w700)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.white,
+                          elevation: 0,
+                          minimumSize: const Size(double.infinity, 44),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

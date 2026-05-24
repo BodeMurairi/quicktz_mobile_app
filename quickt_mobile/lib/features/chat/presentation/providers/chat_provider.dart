@@ -124,14 +124,15 @@ class ChatState {
 
 const _kWelcome = ChatMessage(
   isUser: false,
-  text: "Hi! I'm **QuickTZ AI** 🚌\n\n"
-      "I can help you find bus trips, compare agencies, and even book your "
-      "ticket — all through conversation.\n\nWhere would you like to travel?",
+  text: "👋 Welcome to **QuickTZ AI Travel Companion**!\n\n"
+      "I'm your personal bus travel assistant across Togo. Tell me where "
+      "you want to go and I'll find the best options, compare prices, and "
+      "even book your ticket — all right here in chat.\n\n"
+      "How can I assist you today?",
   chips: [
-    'Find trips from Lomé to Kara',
-    'Cheapest bus to Dapaong',
-    'Tell me about agencies',
-    'Book a trip for me',
+    'Find a bus trip 🔍',
+    'Learn about agencies 🏢',
+    'I need help ℹ️',
   ],
 );
 
@@ -150,27 +151,39 @@ class ChatNotifier extends StateNotifier<ChatState> {
   Future<void> _load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final sessionId = prefs.getString(_kCurrentSession);
-      final rawMsgs   = prefs.getString(_kCurrentMessages);
       final rawHist   = prefs.getString(_kHistorySessions);
+      final rawMsgs   = prefs.getString(_kCurrentMessages);
+      final sessionId = prefs.getString(_kCurrentSession);
 
-      final history = rawHist != null
+      var history = rawHist != null
           ? (jsonDecode(rawHist) as List<dynamic>)
               .map((e) => ChatSession.fromJson(e as Map<String, dynamic>))
               .toList()
           : <ChatSession>[];
 
-      List<ChatMessage> messages = [_kWelcome];
-      if (rawMsgs != null && rawMsgs.isNotEmpty) {
+      // Auto-archive any previous unfinished session that had user messages.
+      if (rawMsgs != null && rawMsgs.isNotEmpty && sessionId != null) {
         final loaded = (jsonDecode(rawMsgs) as List<dynamic>)
             .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
             .toList();
-        if (loaded.isNotEmpty) messages = loaded;
+        final hasUserMessages = loaded.any((m) => m.isUser);
+        if (hasUserMessages) {
+          final session = ChatSession(
+            id: sessionId,
+            startedAt: DateTime.now(),
+            messages: loaded,
+          );
+          history = [session, ...history].take(30).toList();
+          await _saveHistory(history);
+        }
+        // Clear the current session so next open starts fresh.
+        await prefs.remove(_kCurrentMessages);
+        await prefs.remove(_kCurrentSession);
       }
 
+      // Always start with a clean welcome screen.
       state = state.copyWith(
-        messages: messages,
-        sessionId: sessionId,
+        messages: const [_kWelcome],
         history: history,
       );
     } catch (_) {
@@ -218,12 +231,13 @@ class ChatNotifier extends StateNotifier<ChatState> {
           await _repo.sendMessage(text.trim(), sessionId: state.sessionId);
 
       final botMsg = ChatMessage(
-        isUser:        false,
-        text:          result.response,
-        bookingId:     result.bookingId,
-        ticketCode:    result.ticketCode,
-        tripOptions:   result.tripSuggestions,
+        isUser:         false,
+        text:           result.response,
+        bookingId:      result.bookingId,
+        ticketCode:     result.ticketCode,
+        tripOptions:    result.tripSuggestions,
         bookingPreview: result.bookingPreview,
+        chips:          result.chips,
       );
 
       state = state.copyWith(
@@ -264,17 +278,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
 
     state = state.copyWith(
-      messages:  const [
-        ChatMessage(
-          isUser: false,
-          text: 'Hi again! Where would you like to travel?',
-          chips: [
-            'Find trips from Lomé to Kara',
-            'Cheapest bus to Dapaong',
-            'Tell me about agencies',
-          ],
-        ),
-      ],
+      messages: const [_kWelcome],
       sessionId: null,
       isTyping:  false,
     );

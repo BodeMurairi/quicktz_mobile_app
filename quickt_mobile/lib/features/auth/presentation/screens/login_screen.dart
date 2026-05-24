@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
@@ -39,6 +39,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
+    final l10n = ref.watch(l10nProvider);
 
     ref.listen<AuthState>(authProvider, (_, next) {
       if (next.status == AuthStatus.authenticated) context.go('/home');
@@ -68,7 +69,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(width: 12),
                     const Text(
-                      AppStrings.appName,
+                      'QuickTZ',
                       style: TextStyle(
                         color: AppColors.darkPrimary,
                         fontSize: 24,
@@ -78,14 +79,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 40),
-                const Text('Welcome back',
-                    style: TextStyle(
+                Text(l10n.welcomeBack,
+                    style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w700,
                         color: AppColors.darkPrimary)),
                 const SizedBox(height: 6),
-                const Text('Sign in to continue',
-                    style: TextStyle(fontSize: 15, color: AppColors.grey)),
+                Text(l10n.enterCredentials,
+                    style:
+                        const TextStyle(fontSize: 15, color: AppColors.grey)),
                 const SizedBox(height: 32),
                 // Toggle email/phone
                 Container(
@@ -96,13 +98,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   padding: const EdgeInsets.all(4),
                   child: Row(
                     children: [
-                      _toggleBtn('Email', _useEmail, () {
+                      _toggleBtn(l10n.email, _useEmail, () {
                         setState(() {
                           _useEmail = true;
                           _identifierCtrl.clear();
                         });
                       }),
-                      _toggleBtn('Phone', !_useEmail, () {
+                      _toggleBtn(l10n.phoneNumber, !_useEmail, () {
                         setState(() {
                           _useEmail = false;
                           _identifierCtrl.clear();
@@ -114,9 +116,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 20),
                 AppTextField(
                   controller: _identifierCtrl,
-                  label: _useEmail ? AppStrings.email : AppStrings.phoneNumber,
+                  label: _useEmail ? l10n.email : l10n.phoneNumber,
                   hint: _useEmail ? 'you@example.com' : '+228 90 00 00 00',
-                  prefixIcon: _useEmail ? Icons.email_outlined : Icons.phone_outlined,
+                  prefixIcon:
+                      _useEmail ? Icons.email_outlined : Icons.phone_outlined,
                   keyboardType: _useEmail
                       ? TextInputType.emailAddress
                       : TextInputType.phone,
@@ -125,7 +128,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 16),
                 AppTextField(
                   controller: _passwordCtrl,
-                  label: AppStrings.password,
+                  label: l10n.password,
                   hint: '••••••••',
                   prefixIcon: Icons.lock_outline,
                   obscureText: _obscurePassword,
@@ -163,7 +166,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ],
                 const SizedBox(height: 28),
                 AppButton(
-                  label: AppStrings.login,
+                  label: l10n.login,
                   onPressed: _submit,
                   isLoading: auth.isLoading,
                 ),
@@ -171,12 +174,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(AppStrings.dontHaveAccount,
-                        style: TextStyle(color: AppColors.grey)),
+                    Text(l10n.dontHaveAccount,
+                        style: const TextStyle(color: AppColors.grey)),
                     GestureDetector(
                       onTap: () => context.go('/register'),
-                      child: const Text(AppStrings.signUp,
-                          style: TextStyle(
+                      child: Text(l10n.signUp,
+                          style: const TextStyle(
                               color: AppColors.primary,
                               fontWeight: FontWeight.w600)),
                     ),

@@ -18,18 +18,22 @@ from models.ticket import Ticket
 from models.trip import Trip
 from models.user import User
 
-# Per-request context vars — set by the FastAPI endpoint before running the agent
+# Per-request surface state.
+# We store MUTABLE containers (list / dict) in each ContextVar so that tools
+# can mutate them in-place.  In-place mutation (.extend / .update / .clear)
+# is visible to the parent asyncio context; ContextVar.set() is NOT (the new
+# binding only lives in the child task's copy of the context).
 current_user_id: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
     "current_user_id", default=None
 )
-last_booking_result: contextvars.ContextVar[Optional[dict]] = contextvars.ContextVar(
-    "last_booking_result", default=None
+last_booking_result: contextvars.ContextVar[dict] = contextvars.ContextVar(
+    "last_booking_result", default={}
 )
-last_trip_suggestions: contextvars.ContextVar[Optional[list]] = contextvars.ContextVar(
-    "last_trip_suggestions", default=None
+last_trip_suggestions: contextvars.ContextVar[list] = contextvars.ContextVar(
+    "last_trip_suggestions", default=[]
 )
-pending_booking_preview: contextvars.ContextVar[Optional[dict]] = contextvars.ContextVar(
-    "pending_booking_preview", default=None
+pending_booking_preview: contextvars.ContextVar[dict] = contextvars.ContextVar(
+    "pending_booking_preview", default={}
 )
 
 
@@ -120,8 +124,10 @@ async def search_available_trips(
         for t in trips
     ]
 
-    # Surface top results for UI rendering as selectable cards (max 5)
-    last_trip_suggestions.set(trip_list[:5])
+    # Mutate the shared container in-place so the FastAPI handler can read it.
+    _buf = last_trip_suggestions.get()
+    _buf.clear()
+    _buf.extend(trip_list[:5])
 
     return {
         "found": len(trips),
@@ -301,7 +307,7 @@ async def create_booking_and_simulate_payment(
         await db.refresh(booking)
 
         # Clear the pending preview now that the booking is confirmed
-        pending_booking_preview.set(None)
+        pending_booking_preview.get().clear()
 
         agency_name = trip.route.agency.name if (trip.route and trip.route.agency) else "Unknown"
         result_data = {
@@ -320,8 +326,10 @@ async def create_booking_and_simulate_payment(
             "payment_status": "COMPLETED (Simulated)",
         }
 
-    # Surface the result to the FastAPI endpoint via ContextVar
-    last_booking_result.set(result_data)
+    # Mutate the shared container so the FastAPI handler can read it.
+    _buf = last_booking_result.get()
+    _buf.clear()
+    _buf.update(result_data)
     return result_data
 
 
@@ -375,7 +383,9 @@ async def preview_booking(
             "payment_method": payment_method,
         }
 
-    pending_booking_preview.set(preview)
+    _buf = pending_booking_preview.get()
+    _buf.clear()
+    _buf.update(preview)
     return {
         **preview,
         "preview_ready": True,

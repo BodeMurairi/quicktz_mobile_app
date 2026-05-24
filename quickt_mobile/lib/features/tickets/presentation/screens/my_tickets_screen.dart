@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_keys.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../../../../features/booking/data/models/booking_model.dart';
 import '../../../../features/booking/presentation/providers/booking_provider.dart';
 import '../../../../shared/widgets/loading_widget.dart' as lw;
@@ -39,6 +39,7 @@ class _MyTicketsScreenState extends ConsumerState<MyTicketsScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(bookingProvider);
+    final l10n = ref.watch(l10nProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -49,22 +50,27 @@ class _MyTicketsScreenState extends ConsumerState<MyTicketsScreen>
           icon: const Icon(Icons.menu_rounded, color: AppColors.white),
           onPressed: () => appShellKey.currentState?.openDrawer(),
         ),
-        title: const Text(AppStrings.myTickets,
-            style: TextStyle(
+        title: Text(l10n.myTickets,
+            style: const TextStyle(
                 color: AppColors.white, fontWeight: FontWeight.w700)),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppColors.white,
           labelColor: AppColors.white,
           unselectedLabelColor: AppColors.secondary,
-          tabs: const [
-            Tab(icon: Icon(Icons.confirmation_number_outlined, size: 18), text: 'Tickets'),
-            Tab(icon: Icon(Icons.receipt_long_outlined, size: 18), text: 'Payments'),
+          tabs: [
+            Tab(
+                icon: const Icon(Icons.confirmation_number_outlined, size: 18),
+                text: l10n.tickets),
+            Tab(
+                icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                text: l10n.isFr ? 'Paiements' : 'Payments'),
           ],
         ),
       ),
       body: state.isLoading
-          ? const lw.LoadingWidget(message: 'Loading tickets...')
+          ? lw.LoadingWidget(
+              message: l10n.isFr ? 'Chargement…' : 'Loading tickets...')
           : TabBarView(
               controller: _tabController,
               children: [
@@ -78,28 +84,29 @@ class _MyTicketsScreenState extends ConsumerState<MyTicketsScreen>
 
 // ── Tickets tab ───────────────────────────────────────────────────────────────
 
-class _TicketsTab extends StatelessWidget {
+class _TicketsTab extends ConsumerWidget {
   final List<TicketModel> tickets;
   const _TicketsTab({required this.tickets});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
     if (tickets.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.confirmation_number_outlined,
+            const Icon(Icons.confirmation_number_outlined,
                 color: AppColors.secondary, size: 64),
-            SizedBox(height: 16),
-            Text('No tickets yet',
-                style: TextStyle(
+            const SizedBox(height: 16),
+            Text(l10n.noTickets,
+                style: const TextStyle(
                     color: AppColors.textDark,
                     fontSize: 16,
                     fontWeight: FontWeight.w500)),
-            SizedBox(height: 8),
-            Text('Book a trip to get your first ticket',
-                style: TextStyle(color: AppColors.grey, fontSize: 13)),
+            const SizedBox(height: 8),
+            Text(l10n.bookFirstTrip,
+                style: const TextStyle(color: AppColors.grey, fontSize: 13)),
           ],
         ),
       );
@@ -253,28 +260,32 @@ class _TicketCard extends StatelessWidget {
 
 // ── Payments tab ──────────────────────────────────────────────────────────────
 
-class _PaymentsTab extends StatelessWidget {
+class _PaymentsTab extends ConsumerWidget {
   final List<BookingModel> bookings;
   const _PaymentsTab({required this.bookings});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
     if (bookings.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.receipt_long_outlined,
+            const Icon(Icons.receipt_long_outlined,
                 color: AppColors.secondary, size: 64),
-            SizedBox(height: 16),
-            Text('No payments yet',
-                style: TextStyle(
+            const SizedBox(height: 16),
+            Text(l10n.isFr ? 'Aucun paiement' : 'No payments yet',
+                style: const TextStyle(
                     color: AppColors.textDark,
                     fontSize: 16,
                     fontWeight: FontWeight.w500)),
-            SizedBox(height: 8),
-            Text('Completed payments will appear here',
-                style: TextStyle(color: AppColors.grey, fontSize: 13)),
+            const SizedBox(height: 8),
+            Text(
+                l10n.isFr
+                    ? 'Les paiements effectués apparaîtront ici'
+                    : 'Completed payments will appear here',
+                style: const TextStyle(color: AppColors.grey, fontSize: 13)),
           ],
         ),
       );

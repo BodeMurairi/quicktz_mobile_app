@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/l10n/app_l10n.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 
 class AppDrawer extends ConsumerWidget {
@@ -10,7 +11,8 @@ class AppDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
-    final firstName = user?.fullName.split(' ').first ?? 'Traveler';
+    final l10n = ref.watch(l10nProvider);
+    final firstName = user?.fullName.split(' ').first ?? l10n.guest;
     final email = user?.email ?? user?.phoneNumber ?? '';
 
     return Drawer(
@@ -39,7 +41,7 @@ class AppDrawer extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  user?.fullName ?? 'Guest',
+                  user?.fullName ?? l10n.guest,
                   style: const TextStyle(
                       color: AppColors.white,
                       fontSize: 17,
@@ -54,7 +56,8 @@ class AppDrawer extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: 10),
-                _PremiumBadge(isPremium: user?.isPremium ?? false),
+                _PremiumBadge(
+                    isPremium: user?.isPremium ?? false, l10n: l10n),
               ],
             ),
           ),
@@ -65,28 +68,28 @@ class AppDrawer extends ConsumerWidget {
               children: [
                 _DrawerItem(
                   icon: Icons.person_outline_rounded,
-                  label: 'My Profile',
+                  label: l10n.myProfile,
                   onTap: () => _nav(context, '/profile'),
                 ),
                 _DrawerItem(
                   icon: Icons.notifications_outlined,
-                  label: 'Notifications',
+                  label: l10n.notifications,
                   onTap: () => _nav(context, '/notifications'),
                 ),
                 _DrawerItem(
                   icon: Icons.chat_bubble_outline_rounded,
-                  label: 'Ask QuickTZ Bot',
+                  label: l10n.askBot,
                   onTap: () => _nav(context, '/chat'),
                   highlighted: true,
                 ),
                 _DrawerItem(
                   icon: Icons.map_outlined,
-                  label: 'Trip Planner',
+                  label: l10n.tripPlanner,
                   onTap: () => _nav(context, '/trip-planner'),
                 ),
                 _DrawerItem(
                   icon: Icons.confirmation_number_outlined,
-                  label: 'My Tickets',
+                  label: l10n.myTickets,
                   onTap: () => _nav(context, '/tickets'),
                 ),
                 const Padding(
@@ -95,18 +98,20 @@ class AppDrawer extends ConsumerWidget {
                 ),
                 _DrawerItem(
                   icon: Icons.card_giftcard_rounded,
-                  label: 'Gift Cards',
-                  badge: 'New',
-                  onTap: () => _showComingSoon(context, 'Gift Cards'),
+                  label: l10n.giftCards,
+                  badge: l10n.locale == 'fr' ? 'Nouveau' : 'New',
+                  onTap: () =>
+                      _showComingSoon(context, l10n.giftCards, l10n.comingSoon),
                 ),
                 _DrawerItem(
                   icon: Icons.help_outline_rounded,
-                  label: 'Help & Support',
-                  onTap: () => _showComingSoon(context, 'Help & Support'),
+                  label: l10n.helpSupport,
+                  onTap: () => _showComingSoon(
+                      context, l10n.helpSupport, l10n.comingSoon),
                 ),
                 _DrawerItem(
                   icon: Icons.settings_outlined,
-                  label: 'Settings',
+                  label: l10n.settings,
                   onTap: () => _nav(context, '/settings'),
                 ),
               ],
@@ -121,7 +126,7 @@ class AppDrawer extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
             child: _DrawerItem(
               icon: Icons.logout_rounded,
-              label: 'Log Out',
+              label: l10n.logOut,
               color: AppColors.error,
               onTap: () {
                 Navigator.of(context).pop();
@@ -140,11 +145,11 @@ class AppDrawer extends ConsumerWidget {
     context.go(path);
   }
 
-  void _showComingSoon(BuildContext context, String feature) {
+  void _showComingSoon(BuildContext context, String feature, String label) {
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$feature coming soon'),
+        content: Text('$feature — $label'),
         backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
@@ -157,7 +162,8 @@ class AppDrawer extends ConsumerWidget {
 
 class _PremiumBadge extends StatelessWidget {
   final bool isPremium;
-  const _PremiumBadge({required this.isPremium});
+  final AppL10n l10n;
+  const _PremiumBadge({required this.isPremium, required this.l10n});
 
   @override
   Widget build(BuildContext context) {
@@ -179,7 +185,7 @@ class _PremiumBadge extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            isPremium ? 'Premium Member' : 'Free Plan',
+            isPremium ? l10n.premiumMember : l10n.freePlan,
             style: const TextStyle(
                 color: AppColors.white,
                 fontSize: 11,

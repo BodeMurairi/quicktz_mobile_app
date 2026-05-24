@@ -1,38 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/l10n/app_l10n.dart';
+import '../../../../core/providers/locale_provider.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  String _language = 'fr';
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _notificationsEnabled = true;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadNotifications();
   }
 
-  Future<void> _load() async {
+  Future<void> _loadNotifications() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _language = prefs.getString('language') ?? 'fr';
-      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
-    });
-  }
-
-  Future<void> _setLanguage(String lang) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('language', lang);
-    setState(() => _language = lang);
+    if (mounted) {
+      setState(() {
+        _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+      });
+    }
   }
 
   Future<void> _setNotifications(bool enabled) async {
@@ -93,34 +90,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showFaq() {
-    const faqs = [
-      (
-        'How do I book a trip?',
-        'Search for your route using the Search tab. Select a trip, fill in your passenger details, choose a payment method and confirm. You\'ll receive a ticket instantly.',
-      ),
-      (
-        'Can I cancel my booking?',
-        'Yes. Go to My Tickets, open the ticket you want to cancel, and tap "Cancel Booking". Refunds are processed within 3–5 business days depending on your payment method.',
-      ),
-      (
-        'What payment methods are accepted?',
-        'We accept T-Money, Flooz, and bank transfer. All payments are processed securely.',
-      ),
-      (
-        'How do I get my ticket?',
-        'Your ticket is available immediately after booking under the "Tickets" tab. You can download it as a PDF or show the QR code at the bus station.',
-      ),
-      (
-        'What cities does QuickTZ serve?',
-        'We cover Lomé, Kara, Sokodé, Dapaong, Atakpamé, Bassar, Notsé, Tsévié, Bafilo, Niamtougou, Badou, Aného, Vogan, and Tabligbo.',
-      ),
-      (
-        'How does the AI chatbot work?',
-        'The QuickTZ AI can search for trips, compare agencies, and even book your ticket — all through conversation. Just describe what you need in plain language.',
-      ),
-    ];
-
+  void _showFaq(AppL10n l10n) {
+    final faqs = l10n.faqItems;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -145,10 +116,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Text('Frequently Asked Questions',
-                    style: TextStyle(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Text(l10n.frequentlyAskedQuestions,
+                    style: const TextStyle(
                         color: AppColors.darkPrimary,
                         fontWeight: FontWeight.w800,
                         fontSize: 17)),
@@ -192,7 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _contact() async {
+  Future<void> _contact(AppL10n l10n) async {
     final uri = Uri(
       scheme: 'mailto',
       path: 'support@quicktz.com',
@@ -214,13 +185,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = ref.watch(l10nProvider);
+    final currentLang = ref.watch(localeProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.darkPrimary,
         foregroundColor: AppColors.white,
-        title: const Text('Settings',
-            style: TextStyle(
+        title: Text(l10n.settingsTitle,
+            style: const TextStyle(
                 color: AppColors.white, fontWeight: FontWeight.w700)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded,
@@ -233,16 +207,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           // ── General ──────────────────────────────────────────────────────
-          _SectionHeader(title: 'General', icon: Icons.tune_rounded),
+          _SectionHeader(title: l10n.general, icon: Icons.tune_rounded),
           _SettingsCard(children: [
             _LangTile(
-              current: _language,
-              onChanged: _setLanguage,
+              current: currentLang,
+              l10n: l10n,
+              onChanged: (lang) =>
+                  ref.read(localeProvider.notifier).setLocale(lang),
             ),
             const _Divider(),
             _SwitchTile(
               icon: Icons.notifications_outlined,
-              label: 'Notifications',
+              label: l10n.notifications,
               value: _notificationsEnabled,
               onChanged: _setNotifications,
             ),
@@ -251,24 +227,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 20),
 
           // ── About ─────────────────────────────────────────────────────────
-          _SectionHeader(title: 'About', icon: Icons.info_outline_rounded),
+          _SectionHeader(title: l10n.about, icon: Icons.info_outline_rounded),
           _SettingsCard(children: [
             _TapTile(
               icon: Icons.privacy_tip_outlined,
-              label: 'Privacy Policy',
-              onTap: () => _showSheet('Privacy Policy', _kPrivacyPolicy),
+              label: l10n.privacyPolicy,
+              onTap: () =>
+                  _showSheet(l10n.privacyPolicy, l10n.privacyPolicyContent),
             ),
             const _Divider(),
             _TapTile(
               icon: Icons.gavel_rounded,
-              label: 'Terms & Conditions',
+              label: l10n.termsConditions,
               onTap: () =>
-                  _showSheet('Terms & Conditions', _kTermsConditions),
+                  _showSheet(l10n.termsConditions, l10n.termsContent),
             ),
             const _Divider(),
             _TapTile(
               icon: Icons.info_rounded,
-              label: 'App Version',
+              label: l10n.appVersion,
               trailing: const Text('1.0.0',
                   style: TextStyle(
                       color: AppColors.grey,
@@ -282,19 +259,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // ── Help & Support ────────────────────────────────────────────────
           _SectionHeader(
-              title: 'Help & Support',
+              title: l10n.helpSupport,
               icon: Icons.help_outline_rounded),
           _SettingsCard(children: [
             _TapTile(
               icon: Icons.quiz_outlined,
-              label: 'FAQ',
-              onTap: _showFaq,
+              label: l10n.faq,
+              onTap: () => _showFaq(l10n),
             ),
             const _Divider(),
             _TapTile(
               icon: Icons.mail_outline_rounded,
-              label: 'Contact Us',
-              onTap: _contact,
+              label: l10n.contactUs,
+              onTap: () => _contact(l10n),
             ),
           ]),
 
@@ -366,8 +343,10 @@ class _Divider extends StatelessWidget {
 
 class _LangTile extends StatelessWidget {
   final String current;
+  final AppL10n l10n;
   final ValueChanged<String> onChanged;
-  const _LangTile({required this.current, required this.onChanged});
+  const _LangTile(
+      {required this.current, required this.l10n, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -386,9 +365,9 @@ class _LangTile extends StatelessWidget {
                 color: AppColors.primary, size: 20),
           ),
           const SizedBox(width: 14),
-          const Expanded(
-            child: Text('Language',
-                style: TextStyle(
+          Expanded(
+            child: Text(l10n.language,
+                style: const TextStyle(
                     color: AppColors.darkPrimary,
                     fontWeight: FontWeight.w600,
                     fontSize: 14)),
@@ -543,75 +522,3 @@ class _TapTile extends StatelessWidget {
         ),
       );
 }
-
-// ── Legal content ──────────────────────────────────────────────────────────────
-
-const _kPrivacyPolicy = '''
-Last updated: May 2025
-
-QuickTZ ("we", "our", or "us") is committed to protecting your personal information. This Privacy Policy explains how we collect, use, and safeguard your data when you use the QuickTZ mobile application.
-
-1. Information We Collect
-We collect information you provide directly when you create an account, book a trip, or contact us. This includes your name, phone number, email address, and payment information.
-
-2. How We Use Your Information
-We use your personal data to:
-• Process and confirm your trip bookings
-• Send booking confirmations and trip reminders
-• Improve the app and personalise your experience
-• Comply with legal obligations
-
-3. Data Sharing
-We do not sell your personal data. We may share your information with:
-• Bus agencies to fulfil your bookings
-• Payment processors to complete transactions
-• Legal authorities if required by law
-
-4. Data Security
-We implement industry-standard security measures including encrypted storage and secure HTTPS connections to protect your data.
-
-5. Your Rights
-You have the right to access, correct, or delete your personal data. Contact us at privacy@quicktz.com for any requests.
-
-6. Cookies & Analytics
-The app may collect anonymised usage data to improve performance and user experience.
-
-7. Contact
-For privacy-related questions: privacy@quicktz.com
-''';
-
-const _kTermsConditions = '''
-Last updated: May 2025
-
-These Terms & Conditions govern your use of the QuickTZ mobile application and the services provided through it.
-
-1. Acceptance of Terms
-By using QuickTZ, you agree to these terms. If you do not agree, please do not use the app.
-
-2. Booking Policy
-• Bookings are confirmed only after successful payment
-• Ticket prices are displayed in XOF (CFA Francs) and are inclusive of all fees
-• Seats are allocated on a first-come, first-served basis
-
-3. Cancellation & Refunds
-• Cancellations made more than 24 hours before departure are eligible for a full refund
-• Cancellations within 24 hours of departure are non-refundable
-• Refunds are processed within 3–5 business days
-
-4. User Responsibilities
-• You are responsible for providing accurate passenger information
-• You must present a valid ticket (digital or printed) at boarding
-• QuickTZ is not liable for missed trips due to incorrect information
-
-5. Agency Relationships
-QuickTZ acts as a booking platform. The bus agencies are independent operators responsible for service delivery, schedules, and on-board experience.
-
-6. Limitation of Liability
-QuickTZ is not liable for delays, cancellations, or service failures caused by the bus agencies or events beyond our control.
-
-7. Changes to Terms
-We reserve the right to modify these terms at any time. Continued use of the app constitutes acceptance of the updated terms.
-
-8. Contact
-For legal inquiries: legal@quicktz.com
-''';

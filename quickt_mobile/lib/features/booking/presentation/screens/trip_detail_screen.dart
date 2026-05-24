@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../../../../features/search/data/models/trip_model.dart';
 import '../../../../features/search/presentation/providers/search_provider.dart';
 import '../../../../shared/widgets/app_button.dart';
@@ -92,12 +92,13 @@ class TripDetailScreen extends ConsumerWidget {
 
 // ── Body ──────────────────────────────────────────────────────────────────────
 
-class _TripDetailBody extends StatelessWidget {
+class _TripDetailBody extends ConsumerWidget {
   final TripModel trip;
   const _TripDetailBody({required this.trip});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
     final priceFmt = NumberFormat('#,###');
     final timeFmt  = DateFormat('HH:mm');
     final dateFmt  = DateFormat('EEE, d MMM yyyy');
@@ -284,7 +285,7 @@ class _TripDetailBody extends StatelessWidget {
               const SizedBox(width: 16),
               Expanded(
                 child: AppButton(
-                  label: AppStrings.bookNow,
+                  label: l10n.bookNow,
                   onPressed: trip.availableSeats > 0
                       ? () => context.go('/passenger-info/${trip.id}')
                       : null,

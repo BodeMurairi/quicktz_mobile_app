@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_keys.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
@@ -70,6 +70,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final isSearching = ref.watch(searchProvider).isSearching;
+    final l10n = ref.watch(l10nProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -80,8 +81,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           icon: const Icon(Icons.menu_rounded, color: AppColors.white),
           onPressed: () => appShellKey.currentState?.openDrawer(),
         ),
-        title: const Text(AppStrings.searchTrips,
-            style: TextStyle(
+        title: Text(l10n.searchTrips,
+            style: const TextStyle(
                 color: AppColors.white, fontWeight: FontWeight.w700)),
         elevation: 0,
       ),
@@ -95,7 +96,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               const SizedBox(height: 8),
               AppTextField(
                 controller: _originCtrl,
-                label: AppStrings.from,
+                label: l10n.from,
                 hint: 'e.g. Lomé',
                 prefixIcon: Icons.trip_origin_rounded,
                 validator: Validators.required,
@@ -110,7 +111,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   },
                   child: Container(
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
@@ -122,7 +123,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               const SizedBox(height: 16),
               AppTextField(
                 controller: _destinationCtrl,
-                label: AppStrings.to,
+                label: l10n.to,
                 hint: 'e.g. Kara',
                 prefixIcon: Icons.location_on_outlined,
                 validator: Validators.required,
@@ -130,8 +131,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               const SizedBox(height: 16),
               AppTextField(
                 controller: _dateCtrl,
-                label: AppStrings.date,
-                hint: 'Select date',
+                label: l10n.date,
+                hint: l10n.selectDate,
                 prefixIcon: Icons.calendar_today_outlined,
                 readOnly: true,
                 onTap: _pickDate,
@@ -141,8 +142,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(AppStrings.passengers,
-                      style: TextStyle(
+                  Text(l10n.passengers,
+                      style: const TextStyle(
                           color: AppColors.darkPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 13)),
@@ -165,7 +166,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         ),
                         Expanded(
                           child: Text(
-                            '$_passengers ${_passengers == 1 ? 'Passenger' : 'Passengers'}',
+                            '$_passengers ${l10n.passengers}',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                                 color: AppColors.darkPrimary,
@@ -186,7 +187,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: AppStrings.search,
+                label: l10n.search,
                 onPressed: _search,
                 isLoading: isSearching,
                 icon: Icons.search_rounded,

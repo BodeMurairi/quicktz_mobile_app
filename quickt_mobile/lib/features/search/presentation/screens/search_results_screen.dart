@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../../../../shared/widgets/trip_card.dart';
 import '../providers/search_provider.dart';
 
@@ -13,6 +13,7 @@ class SearchResultsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(searchProvider);
     final results = state.results;
+    final l10n = ref.watch(l10nProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -20,7 +21,9 @@ class SearchResultsScreen extends ConsumerWidget {
         backgroundColor: AppColors.darkPrimary,
         foregroundColor: AppColors.white,
         title: Text(
-          '${results.length} trip${results.length != 1 ? 's' : ''} found',
+          l10n.isFr
+              ? '${results.length} ${results.length != 1 ? 'voyages trouvés' : 'voyage trouvé'}'
+              : '${results.length} trip${results.length != 1 ? 's' : ''} found',
           style: const TextStyle(
               color: AppColors.white, fontWeight: FontWeight.w700),
         ),
@@ -41,8 +44,8 @@ class SearchResultsScreen extends ConsumerWidget {
                       Icon(Icons.search_off_rounded,
                           color: AppColors.secondary, size: 64),
                       const SizedBox(height: 16),
-                      const Text(AppStrings.noTripsFound,
-                          style: TextStyle(
+                      Text(l10n.noTripsFound,
+                          style: const TextStyle(
                               color: AppColors.textDark,
                               fontSize: 16,
                               fontWeight: FontWeight.w500)),

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../../../../features/booking/data/models/booking_model.dart';
 import '../../../../features/search/data/models/trip_model.dart';
 import '../../../../features/search/presentation/providers/search_provider.dart';
@@ -102,14 +102,15 @@ class _BookingConfirmationScreenState
   Widget build(BuildContext context) {
     final tripAsync = ref.watch(_tripForBookingProvider(widget.tripId));
     final bookingState = ref.watch(bookingProvider);
+    final l10n = ref.watch(l10nProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.darkPrimary,
         foregroundColor: AppColors.white,
-        title: const Text(AppStrings.confirmBooking,
-            style: TextStyle(
+        title: Text(l10n.confirmBooking,
+            style: const TextStyle(
                 color: AppColors.white, fontWeight: FontWeight.w700)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded,
@@ -139,18 +140,16 @@ class _BookingConfirmationScreenState
                       const SizedBox(height: 16),
                     ],
                     // Payment method
-                    const Text(AppStrings.paymentMethod,
-                        style: TextStyle(
+                    Text(l10n.paymentMethod,
+                        style: const TextStyle(
                             color: AppColors.darkPrimary,
                             fontWeight: FontWeight.w700,
                             fontSize: 16)),
                     const SizedBox(height: 12),
                     ...[
-                      ('tmoney', AppStrings.tmoney,
-                          Icons.phone_android_rounded),
-                      ('flooz', AppStrings.flooz,
-                          Icons.smartphone_rounded),
-                      ('bank_transfer', AppStrings.bankTransfer,
+                      ('tmoney', l10n.tmoney, Icons.phone_android_rounded),
+                      ('flooz', l10n.flooz, Icons.smartphone_rounded),
+                      ('bank_transfer', l10n.bankTransfer,
                           Icons.account_balance_rounded),
                     ].map(
                       (m) => Padding(

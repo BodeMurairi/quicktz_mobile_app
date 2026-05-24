@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_keys.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/search/presentation/providers/search_provider.dart';
 import '../../../../shared/widgets/loading_widget.dart' as lw;
@@ -89,7 +89,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final searchState = ref.watch(searchProvider);
-    final firstName = authState.user?.fullName.split(' ').first ?? 'Traveler';
+    final l10n = ref.watch(l10nProvider);
+    final firstName = authState.user?.fullName.split(' ').first ??
+        (l10n.isFr ? 'Voyageur' : 'Traveler');
 
     final trips = searchState.upcoming;
     final visibleTrips = _showAll ? trips : trips.take(_previewCount).toList();
@@ -134,8 +136,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               fontSize: 22,
                               fontWeight: FontWeight.w700)),
                       const SizedBox(height: 4),
-                      const Text(AppStrings.whereAreYouGoing,
-                          style: TextStyle(
+                      Text(l10n.whereAreYouGoing,
+                          style: const TextStyle(
                               color: AppColors.secondary, fontSize: 14)),
                     ],
                   ),
@@ -166,11 +168,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             // ── Featured agencies ────────────────────────────────────────────
             if (searchState.agencies.isNotEmpty) ...[
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
-                  child: Text(AppStrings.featuredAgencies,
-                      style: TextStyle(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                  child: Text(l10n.featuredAgencies,
+                      style: const TextStyle(
                           color: AppColors.darkPrimary,
                           fontWeight: FontWeight.w700,
                           fontSize: 17)),
@@ -243,8 +245,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(AppStrings.upcomingTrips,
-                        style: TextStyle(
+                    Text(l10n.upcomingTrips,
+                        style: const TextStyle(
                             color: AppColors.darkPrimary,
                             fontWeight: FontWeight.w700,
                             fontSize: 17)),
@@ -253,7 +255,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         onTap: () =>
                             setState(() => _showAll = !_showAll),
                         child: Text(
-                          _showAll ? 'Show less' : 'See all',
+                          _showAll
+                              ? (l10n.isFr ? 'Voir moins' : 'Show less')
+                              : l10n.viewAll,
                           style: const TextStyle(
                               color: AppColors.primary,
                               fontWeight: FontWeight.w600,

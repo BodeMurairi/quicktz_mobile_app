@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../providers/auth_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -65,7 +65,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  AppStrings.appName,
+                  'QuickTZ',
                   style: TextStyle(
                     color: AppColors.white,
                     fontSize: 36,
@@ -75,7 +75,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  AppStrings.tagline,
+                  ref.watch(l10nProvider).tagline,
                   style: TextStyle(
                     color: AppColors.white.withValues(alpha: 0.75),
                     fontSize: 14,

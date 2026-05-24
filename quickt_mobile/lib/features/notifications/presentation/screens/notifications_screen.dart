@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
+import '../../../../core/l10n/app_l10n.dart';
 import '../providers/notification_provider.dart';
 
 class NotificationsScreen extends ConsumerWidget {
@@ -38,14 +38,15 @@ class NotificationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(notificationProvider);
+    final l10n = ref.watch(l10nProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.darkPrimary,
         foregroundColor: AppColors.white,
-        title: const Text(AppStrings.notifications,
-            style: TextStyle(
+        title: Text(l10n.notificationsTitle,
+            style: const TextStyle(
                 color: AppColors.white, fontWeight: FontWeight.w700)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded,
@@ -58,8 +59,9 @@ class NotificationsScreen extends ConsumerWidget {
             TextButton(
               onPressed: () =>
                   ref.read(notificationProvider.notifier).markAllRead(),
-              child: const Text('Mark all read',
-                  style: TextStyle(color: AppColors.secondary, fontSize: 13)),
+              child: Text(l10n.markAllRead,
+                  style: const TextStyle(
+                      color: AppColors.secondary, fontSize: 13)),
             ),
         ],
       ),
@@ -67,15 +69,15 @@ class NotificationsScreen extends ConsumerWidget {
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.primary))
           : state.notifications.isEmpty
-              ? const Center(
+              ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.notifications_off_outlined,
+                      const Icon(Icons.notifications_off_outlined,
                           color: AppColors.secondary, size: 64),
-                      SizedBox(height: 16),
-                      Text('No notifications',
-                          style: TextStyle(
+                      const SizedBox(height: 16),
+                      Text(l10n.noNotifications,
+                          style: const TextStyle(
                               color: AppColors.textDark,
                               fontSize: 16,
                               fontWeight: FontWeight.w500)),

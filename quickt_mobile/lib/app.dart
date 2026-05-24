@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/constants/app_colors.dart';
 import 'core/constants/app_keys.dart';
+import 'core/l10n/app_l10n.dart';
+import 'core/providers/locale_provider.dart';
 import 'features/auth/presentation/screens/splash_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/register_screen.dart';
@@ -90,7 +93,7 @@ final _router = GoRouter(
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
 
-class _MainShell extends StatelessWidget {
+class _MainShell extends ConsumerWidget {
   final String location;
   final Widget child;
   const _MainShell({required this.location, required this.child});
@@ -103,7 +106,8 @@ class _MainShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(l10nProvider);
     return Scaffold(
       key: appShellKey,
       drawer: const AppDrawer(),
@@ -117,22 +121,24 @@ class _MainShell extends StatelessWidget {
         backgroundColor: AppColors.white,
         indicatorColor: AppColors.primary.withValues(alpha: 0.12),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded, color: AppColors.primary),
-            label: 'Home',
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon:
+                const Icon(Icons.home_rounded, color: AppColors.primary),
+            label: l10n.home,
           ),
           NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            selectedIcon: Icon(Icons.search_rounded, color: AppColors.primary),
-            label: 'Search',
+            icon: const Icon(Icons.search_outlined),
+            selectedIcon:
+                const Icon(Icons.search_rounded, color: AppColors.primary),
+            label: l10n.search,
           ),
           NavigationDestination(
-            icon: Icon(Icons.confirmation_number_outlined),
-            selectedIcon: Icon(Icons.confirmation_number_rounded,
+            icon: const Icon(Icons.confirmation_number_outlined),
+            selectedIcon: const Icon(Icons.confirmation_number_rounded,
                 color: AppColors.primary),
-            label: 'Tickets',
+            label: l10n.tickets,
           ),
         ],
       ),
@@ -147,10 +153,14 @@ class QuickTZApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final lang = ref.watch(localeProvider);
     return MaterialApp.router(
       title: 'QuickTZ',
       debugShowCheckedModeBanner: false,
       routerConfig: _router,
+      locale: Locale(lang),
+      supportedLocales: const [Locale('fr'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
