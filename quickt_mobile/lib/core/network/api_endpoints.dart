@@ -1,11 +1,11 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 
 class ApiEndpoints {
   // Web (Docker): Nginx proxies /api/ → backend container — use relative origin.
   // Mobile on same WiFi: uses LAN IP directly (avoids carrier DNS blocks on ngrok).
   // Mobile on different network: switch back to ngrok URL below.
   static String get baseUrl =>
-      kIsWeb ? '/api/v1' : 'http://192.168.1.77:8000/api/v1';
+      kIsWeb ? '/api/v1' : kDebugMode ? 'http://192.168.1.77:8000/api/v1' : 'https://quickt.dessartstudio.com/api/v1';
 
   // Auth
   static const String register = '/auth/register';

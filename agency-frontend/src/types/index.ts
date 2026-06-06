@@ -1,0 +1,254 @@
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export interface LoginRequest {
+  identifier: string
+  password: string
+}
+
+export interface RegisterRequest {
+  full_name: string
+  email: string
+  phone_number?: string
+  password: string
+}
+
+export interface AuthUser {
+  id: string
+  email: string | null
+  phone_number: string | null
+  full_name: string
+  is_premium: boolean
+}
+
+export interface AuthResponse {
+  access_token: string
+  refresh_token: string
+  token_type: string
+}
+
+// ── Agency ────────────────────────────────────────────────────────────────────
+
+export interface Agency {
+  id: string
+  name: string
+  description: string | null
+  logo_url: string | null
+  contact_email: string | null
+  contact_phone: string | null
+  address: string | null
+  is_verified: boolean
+  is_active: boolean
+  created_at: string
+  routes?: Route[]
+}
+
+export interface AgencyCreate {
+  name: string
+  description?: string
+  contact_email?: string
+  contact_phone?: string
+  address?: string
+}
+
+// ── Route ─────────────────────────────────────────────────────────────────────
+
+export interface Route {
+  id: string
+  agency_id: string
+  origin: string
+  destination: string
+  distance_km: number | null
+  duration_minutes: number | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface RouteCreate {
+  agency_id: string
+  origin: string
+  destination: string
+  distance_km?: number
+  duration_minutes?: number
+}
+
+// ── Trip ──────────────────────────────────────────────────────────────────────
+
+export type TripStatus = 'scheduled' | 'departed' | 'completed' | 'cancelled' | 'delayed'
+
+export interface Trip {
+  id: string
+  route_id: string
+  departure_datetime: string
+  arrival_datetime: string | null
+  total_seats: number
+  available_seats: number
+  price: number
+  bus_number: string | null
+  status: TripStatus
+  has_wifi: boolean
+  has_meal: boolean
+  has_ac: boolean
+  has_usb: boolean
+  is_active: boolean
+  created_at: string
+  route?: Route
+}
+
+export interface TripCreate {
+  route_id: string
+  departure_datetime: string
+  arrival_datetime?: string
+  total_seats: number
+  price: number
+  bus_number?: string
+  has_wifi?: boolean
+  has_meal?: boolean
+  has_ac?: boolean
+  has_usb?: boolean
+}
+
+export interface TripUpdate {
+  status?: TripStatus
+  available_seats?: number
+  price?: number
+  departure_datetime?: string
+  arrival_datetime?: string
+}
+
+// ── Booking ───────────────────────────────────────────────────────────────────
+
+export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
+
+export interface Booking {
+  id: string
+  user_id: string
+  trip_id: string
+  seat_number: number | null
+  passenger_name: string
+  passenger_phone: string | null
+  total_price: number
+  status: BookingStatus
+  created_at: string
+  updated_at: string
+  trip?: Trip
+  ticket?: Ticket
+  payment?: Payment
+}
+
+export interface BookingCreate {
+  trip_id: string
+  passenger_name: string
+  passenger_phone?: string
+  seat_number?: number
+  payment_method?: string
+}
+
+// ── Ticket ────────────────────────────────────────────────────────────────────
+
+export interface Ticket {
+  id: string
+  booking_id: string
+  ticket_code: string
+  qr_data: string
+  status: 'active' | 'used' | 'cancelled'
+  issued_at: string
+}
+
+// ── Payment ───────────────────────────────────────────────────────────────────
+
+export type PaymentMethod = 'mobile_money' | 'tmoney' | 'flooz' | 'bank_transfer' | 'cash'
+
+export interface Payment {
+  id: string
+  booking_id: string
+  amount: number
+  payment_method: PaymentMethod
+  status: 'pending' | 'completed' | 'failed' | 'refunded'
+  paid_at: string | null
+  created_at: string
+}
+
+// ── Customer (enriched view of User from agency perspective) ──────────────────
+
+export interface Customer {
+  id: string
+  full_name: string
+  email: string | null
+  phone_number: string | null
+  booking_count: number
+  total_spent: number
+  last_travel: string | null
+  is_premium: boolean
+}
+
+// ── Review ────────────────────────────────────────────────────────────────────
+
+export interface Review {
+  id: string
+  customer_name: string
+  rating: number
+  comment: string
+  trip_route: string
+  created_at: string
+  reply?: string
+}
+
+// ── Promotion ─────────────────────────────────────────────────────────────────
+
+export interface Promotion {
+  id: string
+  code: string
+  description: string
+  discount_percent: number
+  valid_from: string
+  valid_until: string
+  max_uses: number
+  used_count: number
+  is_active: boolean
+  routes: string[]
+}
+
+// ── Announcement ──────────────────────────────────────────────────────────────
+
+export interface Announcement {
+  id: string
+  title: string
+  body: string
+  target: 'all' | 'previous_customers'
+  created_at: string
+  sent_count: number
+}
+
+// ── Finance helpers ───────────────────────────────────────────────────────────
+
+export interface RevenueDataPoint {
+  label: string
+  revenue: number
+  commission: number
+  net: number
+  bookings: number
+}
+
+export interface TransactionRow {
+  id: string
+  date: string
+  passenger: string
+  route: string
+  amount: number
+  method: PaymentMethod
+  status: Payment['status']
+  booking_id: string
+}
+
+// ── Pagination / API wrapper ──────────────────────────────────────────────────
+
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  page: number
+  size: number
+}
+
+export interface ApiError {
+  detail: string
+}
