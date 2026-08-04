@@ -220,6 +220,7 @@ class _TripDetailBody extends ConsumerWidget {
                   arrival: arr,
                   durationMinutes: dur,
                   distanceKm: trip.route?.distanceKm,
+                  routeStops: trip.route?.stops ?? const [],
                 ),
 
                 const SizedBox(height: 12),
@@ -231,6 +232,12 @@ class _TripDetailBody extends ConsumerWidget {
                   hasAc: trip.hasAc,
                   hasUsb: trip.hasUsb,
                 ),
+
+                if (trip.requirements.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  // ── Travel requirements ─────────────────────────────────
+                  _RequirementsCard(requirements: trip.requirements),
+                ],
 
                 const SizedBox(height: 12),
 
@@ -368,6 +375,7 @@ class _RouteInfoCard extends StatelessWidget {
   final DateTime? arrival;
   final int? durationMinutes;
   final double? distanceKm;
+  final List<RouteStop> routeStops;
 
   const _RouteInfoCard({
     required this.origin,
@@ -376,12 +384,17 @@ class _RouteInfoCard extends StatelessWidget {
     required this.arrival,
     required this.durationMinutes,
     required this.distanceKm,
+    this.routeStops = const [],
   });
 
   @override
   Widget build(BuildContext context) {
     final timeFmt = DateFormat('HH:mm');
-    final stops = _stops(origin, destination);
+    // Prefer the agency's own stops for this route; fall back to the
+    // built-in corridor list only when the agency hasn't defined any.
+    final stops = routeStops.isNotEmpty
+        ? routeStops.map((s) => s.name).toList()
+        : _stops(origin, destination);
 
     return Container(
       width: double.infinity,
@@ -633,6 +646,72 @@ class _AmenityTile extends StatelessWidget {
                     fontSize: 10)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Travel requirements card ─────────────────────────────────────────────────
+
+class _RequirementsCard extends StatelessWidget {
+  final List<TripRequirement> requirements;
+  const _RequirementsCard({required this.requirements});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.rule_rounded,
+                  color: AppColors.darkPrimary, size: 17),
+              const SizedBox(width: 6),
+              const Text('Travel Requirements',
+                  style: TextStyle(
+                      color: AppColors.darkPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...requirements.map((r) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 5),
+                      child: Icon(Icons.circle,
+                          color: AppColors.secondary, size: 6),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(r.label,
+                              style: const TextStyle(
+                                  color: AppColors.darkPrimary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13)),
+                          Text(r.value,
+                              style: const TextStyle(
+                                  color: AppColors.grey, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
       ),
     );
   }
