@@ -31,12 +31,25 @@ class AgencyModel {
       );
 }
 
+class RouteStop {
+  final String name;
+  final int? durationMinutes;
+
+  RouteStop({required this.name, this.durationMinutes});
+
+  factory RouteStop.fromJson(Map<String, dynamic> json) => RouteStop(
+        name: json['name'],
+        durationMinutes: json['duration_minutes'],
+      );
+}
+
 class RouteModel {
   final String id;
   final String origin;
   final String destination;
   final int? durationMinutes;
   final double? distanceKm;
+  final List<RouteStop> stops;
   final AgencyModel? agency;
 
   RouteModel({
@@ -45,6 +58,7 @@ class RouteModel {
     required this.destination,
     this.durationMinutes,
     this.distanceKm,
+    this.stops = const [],
     this.agency,
   });
 
@@ -54,9 +68,25 @@ class RouteModel {
         destination: json['destination'],
         durationMinutes: json['duration_minutes'],
         distanceKm: (json['distance_km'] as num?)?.toDouble(),
+        stops: (json['stops'] as List<dynamic>?)
+                ?.map((s) => RouteStop.fromJson(s as Map<String, dynamic>))
+                .toList() ??
+            const [],
         agency: json['agency'] != null
             ? AgencyModel.fromJson(json['agency'])
             : null,
+      );
+}
+
+class TripRequirement {
+  final String label;
+  final String value;
+
+  TripRequirement({required this.label, required this.value});
+
+  factory TripRequirement.fromJson(Map<String, dynamic> json) => TripRequirement(
+        label: json['label'],
+        value: json['value'],
       );
 }
 
@@ -74,6 +104,7 @@ class TripModel {
   final bool hasMeal;
   final bool hasAc;
   final bool hasUsb;
+  final List<TripRequirement> requirements;
   final RouteModel? route;
 
   TripModel({
@@ -90,6 +121,7 @@ class TripModel {
     this.hasMeal = false,
     this.hasAc = false,
     this.hasUsb = false,
+    this.requirements = const [],
     this.route,
   });
 
@@ -109,6 +141,10 @@ class TripModel {
         hasMeal: json['has_meal'] ?? false,
         hasAc: json['has_ac'] ?? false,
         hasUsb: json['has_usb'] ?? false,
+        requirements: (json['requirements'] as List<dynamic>?)
+                ?.map((r) => TripRequirement.fromJson(r as Map<String, dynamic>))
+                .toList() ??
+            const [],
         route: json['route'] != null
             ? RouteModel.fromJson(json['route'])
             : null,
