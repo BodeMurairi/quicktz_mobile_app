@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, DateTime, Float, Integer, ForeignKey
+from sqlalchemy import Column, String, Boolean, DateTime, Float, Integer, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from data.database import Base
 
@@ -21,6 +21,7 @@ class Trip(Base):
     has_meal = Column(Boolean, default=False)
     has_ac   = Column(Boolean, default=False)
     has_usb  = Column(Boolean, default=False)
+    requirements = Column(JSON, nullable=True)  # [{"label": str, "value": str}, ...] agency-defined travel requirements
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
