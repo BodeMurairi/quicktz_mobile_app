@@ -23,8 +23,9 @@ async def get_agency(db: AsyncSession, agency_id: str) -> Agency:
 
 
 async def get_agency_routes(db: AsyncSession, agency_id: str) -> list[Route]:
+    # Includes inactive routes — the agency dashboard needs to list and reactivate them.
     result = await db.execute(
-        select(Route).where(Route.agency_id == agency_id, Route.is_active == True)
+        select(Route).where(Route.agency_id == agency_id)
     )
     return list(result.scalars().all())
 
