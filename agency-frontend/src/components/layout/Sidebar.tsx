@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  Bus, LayoutDashboard, Ticket, DollarSign, Calendar,
+  Bus, LayoutDashboard, Ticket, DollarSign, Calendar, Route as RouteIcon,
   Users, Megaphone, Settings, LogOut, ChevronRight, Building2,
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -29,7 +29,8 @@ const NAV: NavGroup[] = [
     items: [
       { label: 'Bookings', href: '/bookings', icon: Ticket },
       { label: 'Finance', href: '/finance', icon: DollarSign },
-      { label: 'Schedule & Routes', href: '/schedule', icon: Calendar },
+      { label: 'Trips', href: '/schedule', icon: Calendar },
+      { label: 'Routes', href: '/routes', icon: RouteIcon },
     ],
   },
   {
