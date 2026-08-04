@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, DateTime, Float, Integer, ForeignKey
+from sqlalchemy import Column, String, Boolean, DateTime, Float, Integer, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from data.database import Base
 
@@ -14,6 +14,7 @@ class Route(Base):
     destination = Column(String, nullable=False, index=True)
     distance_km = Column(Float, nullable=True)
     duration_minutes = Column(Integer, nullable=True)
+    stops = Column(JSON, nullable=True)  # [{"name": str, "duration_minutes": int}, ...] in travel order
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
