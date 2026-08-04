@@ -12,7 +12,7 @@ export const routeApi = {
     return data
   },
 
-  update: async (id: string, payload: Partial<RouteCreate>): Promise<Route> => {
+  update: async (id: string, payload: Partial<RouteCreate> & { is_active?: boolean }): Promise<Route> => {
     const { data } = await apiClient.patch<Route>(`/routes/${id}`, payload)
     return data
   },
