@@ -52,6 +52,11 @@ export interface AgencyCreate {
 
 // ── Route ─────────────────────────────────────────────────────────────────────
 
+export interface RouteStop {
+  name: string
+  duration_minutes?: number | null // travel time from the previous stop (or from origin, for the first stop)
+}
+
 export interface Route {
   id: string
   agency_id: string
@@ -59,6 +64,7 @@ export interface Route {
   destination: string
   distance_km: number | null
   duration_minutes: number | null
+  stops?: RouteStop[] | null
   is_active: boolean
   created_at: string
 }
@@ -69,11 +75,17 @@ export interface RouteCreate {
   destination: string
   distance_km?: number
   duration_minutes?: number
+  stops?: RouteStop[]
 }
 
 // ── Trip ──────────────────────────────────────────────────────────────────────
 
 export type TripStatus = 'scheduled' | 'departed' | 'completed' | 'cancelled' | 'delayed'
+
+export interface TripRequirement {
+  label: string
+  value: string
+}
 
 export interface Trip {
   id: string
@@ -89,6 +101,7 @@ export interface Trip {
   has_meal: boolean
   has_ac: boolean
   has_usb: boolean
+  requirements?: TripRequirement[] | null
   is_active: boolean
   created_at: string
   route?: Route
@@ -105,6 +118,7 @@ export interface TripCreate {
   has_meal?: boolean
   has_ac?: boolean
   has_usb?: boolean
+  requirements?: TripRequirement[]
 }
 
 export interface TripUpdate {
@@ -193,6 +207,24 @@ export interface Review {
   reply?: string
 }
 
+// ── Messaging ─────────────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  id: string
+  sender: 'agency' | 'customer'
+  text: string
+  created_at: string
+}
+
+export interface Conversation {
+  id: string
+  customer_id: string
+  customer_name: string
+  customer_email: string | null
+  customer_phone: string | null
+  messages: ChatMessage[]
+}
+
 // ── Promotion ─────────────────────────────────────────────────────────────────
 
 export interface Promotion {
@@ -217,6 +249,20 @@ export interface Announcement {
   target: 'all' | 'previous_customers'
   created_at: string
   sent_count: number
+}
+
+// ── Notifications (agency dashboard) ────────────────────────────────────────────
+
+export type AgencyNotificationType = 'booking' | 'review' | 'payment' | 'system'
+
+export interface AgencyNotification {
+  id: string
+  type: AgencyNotificationType
+  title: string
+  description: string
+  created_at: string
+  read: boolean
+  href?: string
 }
 
 // ── Finance helpers ───────────────────────────────────────────────────────────
