@@ -1,5 +1,5 @@
 import type {
-  Booking, Trip, Route, Customer, Review,
+  Booking, Trip, Route, Customer, Review, Conversation, AgencyNotification,
   Promotion, Announcement, RevenueDataPoint, TransactionRow,
 } from '../types'
 
@@ -47,6 +47,55 @@ export const mockReviews: Review[] = [
   { id: 'r-003', customer_name: 'Yao Agbenyo', rating: 3, comment: 'AC was not working. Otherwise comfortable.', trip_route: 'Kara → Lomé', created_at: '2026-05-28T09:00:00', reply: undefined },
   { id: 'r-004', customer_name: 'Efua Asante', rating: 5, comment: 'Best bus service in Togo. Will definitely use again!', trip_route: 'Lomé → Kara', created_at: '2026-05-25T16:00:00', reply: 'Thank you, Efua! We look forward to seeing you again.' },
   { id: 'r-005', customer_name: 'Kwame Boateng', rating: 2, comment: 'Bus broke down for 2 hours. Need better maintenance.', trip_route: 'Atakpamé → Lomé', created_at: '2026-05-22T08:00:00', reply: undefined },
+]
+
+// ── Mock conversations ────────────────────────────────────────────────────────
+// Conversation id always follows `conv-${customer_id}` so a chat can be looked
+// up or lazily created from either the directory or the inbox.
+
+export const mockConversations: Conversation[] = [
+  {
+    id: 'conv-c-001',
+    customer_id: 'c-001',
+    customer_name: 'Kofi Mensah',
+    customer_email: 'kofi@example.com',
+    customer_phone: '+228 90 12 34 56',
+    messages: [
+      { id: 'm-001', sender: 'customer', text: 'Hi, is the 06:00 Lomé → Kara bus still running tomorrow?', created_at: '2026-06-04T08:10:00' },
+      { id: 'm-002', sender: 'agency', text: "Yes, it's running as scheduled. Would you like me to hold a seat for you?", created_at: '2026-06-04T08:22:00' },
+      { id: 'm-003', sender: 'customer', text: 'Yes please, one seat.', created_at: '2026-06-04T08:24:00' },
+    ],
+  },
+  {
+    id: 'conv-c-003',
+    customer_id: 'c-003',
+    customer_name: 'Yao Agbenyo',
+    customer_email: 'yao@mail.tg',
+    customer_phone: '+228 92 34 56 78',
+    messages: [
+      { id: 'm-004', sender: 'customer', text: "The AC on my last trip wasn't working, can I get a partial refund?", created_at: '2026-06-03T10:00:00' },
+    ],
+  },
+  {
+    id: 'conv-c-006',
+    customer_id: 'c-006',
+    customer_name: 'Efua Asante',
+    customer_email: 'efua@mail.tg',
+    customer_phone: '+228 94 56 78 90',
+    messages: [
+      { id: 'm-005', sender: 'agency', text: 'Thank you for your continued loyalty! Enjoy 10% off your next booking with code THANKS10.', created_at: '2026-06-01T09:00:00' },
+      { id: 'm-006', sender: 'customer', text: 'Thank you so much! Will use it this weekend.', created_at: '2026-06-01T09:30:00' },
+    ],
+  },
+]
+
+// ── Mock notifications (agency dashboard bell) ────────────────────────────────
+
+export const mockAgencyNotifications: AgencyNotification[] = [
+  { id: 'n-001', type: 'booking', title: 'New booking received', description: 'Kofi Mensah booked Lomé → Kara, departing 04 Jun.', created_at: '2026-08-04T09:10:00', read: false, href: '/bookings' },
+  { id: 'n-002', type: 'review', title: 'New review needs a reply', description: 'Yao Agbenyo left a 3-star review — the AC was not working.', created_at: '2026-08-04T08:40:00', read: false, href: '/customers' },
+  { id: 'n-003', type: 'payment', title: 'Payment received', description: 'Mobile money payment of 12,500 XOF confirmed.', created_at: '2026-08-03T18:05:00', read: true, href: '/finance' },
+  { id: 'n-004', type: 'system', title: 'Weekly summary ready', description: 'Your agency performance report for last week is ready to view.', created_at: '2026-08-03T07:00:00', read: true, href: '/dashboard' },
 ]
 
 // ── Mock promotions ───────────────────────────────────────────────────────────
