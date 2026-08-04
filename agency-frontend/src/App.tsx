@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './contexts/AuthContext'
+import { ToastProvider } from './contexts/ToastContext'
 
 // Error boundary
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -19,7 +20,8 @@ import BookingsPage from './pages/bookings/BookingsPage'
 import BookingDetailPage from './pages/bookings/BookingDetailPage'
 import ManualBookingPage from './pages/bookings/ManualBookingPage'
 import FinancePage from './pages/finance/FinancePage'
-import SchedulePage from './pages/schedule/SchedulePage'
+import TripsPage from './pages/schedule/TripsPage'
+import RoutesPage from './pages/schedule/RoutesPage'
 import CustomersPage from './pages/customers/CustomersPage'
 import MarketingPage from './pages/marketing/MarketingPage'
 import SettingsPage from './pages/SettingsPage'
@@ -37,6 +39,7 @@ export default function App() {
   return (
     <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
+      <ToastProvider>
       <AuthProvider>
         <BrowserRouter>
           <Routes>
@@ -58,7 +61,8 @@ export default function App() {
               <Route path="/finance" element={<FinancePage />} />
 
               {/* Schedule */}
-              <Route path="/schedule" element={<SchedulePage />} />
+              <Route path="/schedule" element={<TripsPage />} />
+              <Route path="/routes" element={<RoutesPage />} />
 
               {/* Customers */}
               <Route path="/customers" element={<CustomersPage />} />
@@ -77,6 +81,7 @@ export default function App() {
           </Routes>
         </BrowserRouter>
       </AuthProvider>
+      </ToastProvider>
     </QueryClientProvider>
     </ErrorBoundary>
   )
