@@ -231,6 +231,7 @@ class _TripDetailBody extends ConsumerWidget {
                   hasMeal: trip.hasMeal,
                   hasAc: trip.hasAc,
                   hasUsb: trip.hasUsb,
+                  extra: trip.amenities,
                 ),
 
                 if (trip.requirements.isNotEmpty) ...[
@@ -569,12 +570,14 @@ class _AmenitiesCard extends StatelessWidget {
   final bool hasMeal;
   final bool hasAc;
   final bool hasUsb;
+  final List<String> extra;
 
   const _AmenitiesCard({
     required this.hasWifi,
     required this.hasMeal,
     required this.hasAc,
     required this.hasUsb,
+    this.extra = const [],
   });
 
   @override
@@ -606,6 +609,28 @@ class _AmenitiesCard extends StatelessWidget {
               _AmenityTile(Icons.usb_rounded, 'USB', hasUsb),
             ],
           ),
+          if (extra.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: extra
+                  .map((a) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(a,
+                            style: const TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12)),
+                      ))
+                  .toList(),
+            ),
+          ],
         ],
       ),
     );

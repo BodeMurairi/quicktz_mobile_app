@@ -98,8 +98,9 @@ async def list_trips(
     if to_date:
         query = query.where(Trip.departure_datetime <= datetime.fromisoformat(to_date))
 
+    # Most recent / soonest-upcoming departures first.
     # Safety cap: seed/test data can accumulate thousands of rows per agency, which
     # would otherwise ship an unbounded, unpaginated payload to the dashboard table.
-    query = query.order_by(Trip.departure_datetime).limit(500)
+    query = query.order_by(Trip.departure_datetime.desc()).limit(500)
     result = await db.execute(query)
     return list(result.scalars().all())

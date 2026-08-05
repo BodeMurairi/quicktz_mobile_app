@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Calendar, Plus, Route as RouteIcon, Bus, Clock,
-  CheckCircle2, XCircle, AlertTriangle, MapPin, Trash2, ClipboardList, Repeat,
+  CheckCircle2, XCircle, AlertTriangle, MapPin, Trash2, ClipboardList, Repeat, Sparkles,
+  ChevronLeft, ChevronRight, X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -20,8 +21,8 @@ import { tripApi } from '../../api/trips'
 import { routeApi } from '../../api/routes'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
-import type { Trip, TripStatus } from '../../types'
-import { formatCurrency, formatDateTime } from '../../utils/format'
+import type { Trip, TripStatus, TripUpdate } from '../../types'
+import { formatCurrency, formatDateTime, formatTime } from '../../utils/format'
 
 type BadgeColor = 'primary' | 'success' | 'warning' | 'error' | 'secondary' | 'default'
 
@@ -35,6 +36,7 @@ const REQUIREMENT_PRESETS = [
 
 const tripSchema = z.object({
   route_id: z.string().min(1, 'Select a route'),
+  boarding_time: z.string().optional(),
   departure_datetime: z.string().min(1, 'Set departure time'),
   arrival_datetime: z.string().optional(),
   total_seats: z.coerce.number().int().min(1).max(100),
@@ -51,6 +53,35 @@ const tripSchema = z.object({
 })
 
 type TripForm = z.infer<typeof tripSchema>
+
+const tripEditSchema = z.object({
+  route_id: z.string().min(1, 'Select a route'),
+  boarding_time: z.string().optional(),
+  departure_datetime: z.string().min(1, 'Set departure time'),
+  arrival_datetime: z.string().optional(),
+  total_seats: z.coerce.number().int().min(1).max(100),
+  available_seats: z.coerce.number().int().min(0),
+  price: z.coerce.number().min(1000),
+  bus_number: z.string().optional(),
+  status: z.enum(['scheduled', 'departed', 'completed', 'cancelled', 'delayed']),
+  has_wifi: z.boolean().default(false),
+  has_meal: z.boolean().default(false),
+  has_ac: z.boolean().default(false),
+  has_usb: z.boolean().default(false),
+  requirements: z.array(z.object({
+    label: z.string().min(1, 'Required'),
+    value: z.string().min(1, 'Required'),
+  })).optional(),
+}).refine(d => d.available_seats <= d.total_seats, {
+  message: 'Cannot exceed total seats',
+  path: ['available_seats'],
+})
+
+type TripEditForm = z.infer<typeof tripEditSchema>
+
+function isoToDatetimeLocal(iso: string | null | undefined): string {
+  return iso ? iso.slice(0, 16) : ''
+}
 
 const STATUS_COLORS: Record<TripStatus, BadgeColor> = {
   scheduled: 'primary',
@@ -77,7 +108,7 @@ const RECURRENCE_MAX = 60 // hard cap per batch so a mis-click can't spam hundre
 interface RecurrenceConfig {
   type: RecurrenceType
   weekdays: number[]
-  endType: 'after_count' | 'on_date'
+  endType: 'never' | 'after_count' | 'on_date'
   count: number
   endDate: string
 }
@@ -126,6 +157,107 @@ function buildOccurrenceDates(startValue: string, recur: RecurrenceConfig): Date
   return dates.length > 0 ? dates : [start]
 }
 
+function FormSection({
+  icon: Icon,
+  title,
+  hint,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  hint?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="border border-gray-200 rounded-xl p-4 space-y-3.5">
+      <div>
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4 text-primary" />
+          <p className="text-sm font-semibold text-dark">{title}</p>
+        </div>
+        {hint && <p className="text-xs text-gray-400 mt-0.5 ml-6">{hint}</p>}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function AmenityTagInput({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [draft, setDraft] = useState('')
+
+  function addAmenity() {
+    const trimmed = draft.trim()
+    if (!trimmed || value.includes(trimmed)) { setDraft(''); return }
+    onChange([...value, trimmed])
+    setDraft('')
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-medium text-gray-500 mb-1.5">More amenities</p>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAmenity() } }}
+          placeholder="e.g. Reclining seats, Charging ports…"
+          className="flex-1 px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition"
+        />
+        <Button type="button" variant="outline" onClick={addAmenity}>Add</Button>
+      </div>
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2.5">
+          {value.map(a => (
+            <span key={a} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary-700 font-medium">
+              {a}
+              <button
+                type="button"
+                onClick={() => onChange(value.filter(x => x !== a))}
+                className="hover:text-error transition"
+                aria-label={`Remove ${a}`}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const TRIPS_PAGE_SIZE = 10
+
+// ── Period filter (year / month / exact date) ───────────────────────────────────
+
+const CURRENT_YEAR = new Date().getFullYear()
+const YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => CURRENT_YEAR - 1 + i)
+const MONTH_OPTIONS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+function computeDateRange(
+  year: number | 'all',
+  month: number | 'all',
+  exactDate: string
+): { from_date?: string; to_date?: string } {
+  if (exactDate) {
+    return { from_date: `${exactDate}T00:00:00`, to_date: `${exactDate}T23:59:59` }
+  }
+  if (year === 'all') return {}
+  if (month === 'all') {
+    return { from_date: `${year}-01-01T00:00:00`, to_date: `${year}-12-31T23:59:59` }
+  }
+  const mm = String(month + 1).padStart(2, '0')
+  const lastDay = new Date(year, month + 1, 0).getDate()
+  return {
+    from_date: `${year}-${mm}-01T00:00:00`,
+    to_date: `${year}-${mm}-${String(lastDay).padStart(2, '0')}T23:59:59`,
+  }
+}
+
 export default function TripsPage() {
   const { agency } = useAuth()
   const qc = useQueryClient()
@@ -135,13 +267,21 @@ export default function TripsPage() {
   const [statusFilter, setStatusFilter] = useState<TripStatus | 'all'>('all')
   const [recurrence, setRecurrence] = useState<RecurrenceType>('none')
   const [recurWeekdays, setRecurWeekdays] = useState<number[]>([])
-  const [recurEndType, setRecurEndType] = useState<'after_count' | 'on_date'>('after_count')
+  const [recurEndType, setRecurEndType] = useState<'never' | 'after_count' | 'on_date'>('after_count')
   const [recurCount, setRecurCount] = useState(4)
   const [recurEndDate, setRecurEndDate] = useState('')
+  const [yearFilter, setYearFilter] = useState<number | 'all'>('all')
+  const [monthFilter, setMonthFilter] = useState<number | 'all'>('all')
+  const [dateFilter, setDateFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [customAmenities, setCustomAmenities] = useState<string[]>([])
+
+  const dateRange = computeDateRange(yearFilter, monthFilter, dateFilter)
+  const hasPeriodFilter = yearFilter !== 'all' || !!dateFilter
 
   const { data: trips = [], isLoading: tripsLoading } = useQuery({
-    queryKey: ['trips', agency?.id],
-    queryFn: () => tripApi.list({ agency_id: agency?.id }),
+    queryKey: ['trips', agency?.id, dateRange.from_date, dateRange.to_date],
+    queryFn: () => tripApi.list({ agency_id: agency?.id, ...dateRange }),
     enabled: !!agency,
   })
 
@@ -176,6 +316,8 @@ export default function TripsPage() {
     const start = new Date(d.departure_datetime)
     const arrival = d.arrival_datetime ? new Date(d.arrival_datetime) : null
     const arrivalOffsetMs = arrival && !isNaN(arrival.getTime()) ? arrival.getTime() - start.getTime() : null
+    const boarding = d.boarding_time ? new Date(d.boarding_time) : null
+    const boardingOffsetMs = boarding && !isNaN(boarding.getTime()) ? boarding.getTime() - start.getTime() : null
 
     let success = 0
     let failed = 0
@@ -184,8 +326,11 @@ export default function TripsPage() {
       const arrival_datetime = arrivalOffsetMs != null
         ? toDatetimeLocalValue(new Date(occ.getTime() + arrivalOffsetMs))
         : undefined
+      const boarding_time = boardingOffsetMs != null
+        ? toDatetimeLocalValue(new Date(occ.getTime() + boardingOffsetMs))
+        : undefined
       try {
-        await createTrip.mutateAsync({ ...d, departure_datetime, arrival_datetime })
+        await createTrip.mutateAsync({ ...d, departure_datetime, arrival_datetime, boarding_time, amenities: customAmenities })
         success++
       } catch {
         failed++
@@ -196,6 +341,14 @@ export default function TripsPage() {
     setShowTripModal(false)
     tripForm.reset()
     resetRecurrence()
+    setCustomAmenities([])
+
+    // Clear any active period/status filter so the newly scheduled trip(s) are
+    // visible immediately, instead of silently landing outside the current view.
+    setYearFilter('all')
+    setMonthFilter('all')
+    setDateFilter('')
+    setStatusFilter('all')
 
     if (failed === 0) {
       toast.success(success > 1 ? `${success} trips scheduled successfully.` : 'Trip scheduled successfully.')
@@ -222,7 +375,82 @@ export default function TripsPage() {
   })
   const requirementsArray = useFieldArray({ control: tripForm.control, name: 'requirements' })
 
+  // ── Trip details / edit ────────────────────────────────────────────────────
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
+  const [editCustomAmenities, setEditCustomAmenities] = useState<string[]>([])
+
+  const editForm = useForm<TripEditForm>({ resolver: zodResolver(tripEditSchema) })
+  const editRequirementsArray = useFieldArray({ control: editForm.control, name: 'requirements' })
+
+  const updateTrip = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: TripUpdate }) => tripApi.update(id, payload),
+    onSuccess: (trip) => {
+      qc.invalidateQueries({ queryKey: ['trips'] })
+      setEditingTrip(null)
+      toast.success(`${trip.route ? `${trip.route.origin} → ${trip.route.destination} ` : 'Trip '}updated.`)
+    },
+    onError: () => toast.error('Could not update the trip. Please try again.'),
+  })
+
+  function openTripDetails(trip: Trip) {
+    editForm.reset({
+      route_id: trip.route_id,
+      boarding_time: isoToDatetimeLocal(trip.boarding_time),
+      departure_datetime: isoToDatetimeLocal(trip.departure_datetime),
+      arrival_datetime: isoToDatetimeLocal(trip.arrival_datetime),
+      total_seats: trip.total_seats,
+      available_seats: trip.available_seats,
+      price: trip.price,
+      bus_number: trip.bus_number ?? '',
+      status: trip.status,
+      has_wifi: trip.has_wifi,
+      has_meal: trip.has_meal,
+      has_ac: trip.has_ac,
+      has_usb: trip.has_usb,
+      requirements: trip.requirements ?? [],
+    })
+    setEditCustomAmenities(trip.amenities ?? [])
+    setEditingTrip(trip)
+  }
+
+  function handleEditSubmit(d: TripEditForm) {
+    if (!editingTrip) return
+    updateTrip.mutate({
+      id: editingTrip.id,
+      payload: {
+        route_id: d.route_id,
+        boarding_time: d.boarding_time || undefined,
+        departure_datetime: d.departure_datetime,
+        arrival_datetime: d.arrival_datetime || undefined,
+        total_seats: d.total_seats,
+        available_seats: d.available_seats,
+        price: d.price,
+        bus_number: d.bus_number || undefined,
+        status: d.status,
+        has_wifi: d.has_wifi,
+        has_meal: d.has_meal,
+        has_ac: d.has_ac,
+        has_usb: d.has_usb,
+        requirements: d.requirements,
+        amenities: editCustomAmenities,
+      },
+    })
+  }
+
+  // The trip being edited might reference a route that's since been deactivated —
+  // keep it selectable even though it's excluded from the "create" dropdown.
+  const editRouteOptions = routes.filter(r => r.is_active || r.id === editingTrip?.route_id)
+
   const filteredTrips = statusFilter === 'all' ? trips : trips.filter(t => t.status === statusFilter)
+
+  const totalPages = Math.max(1, Math.ceil(filteredTrips.length / TRIPS_PAGE_SIZE))
+  const pagedTrips = filteredTrips.slice((page - 1) * TRIPS_PAGE_SIZE, page * TRIPS_PAGE_SIZE)
+
+  // Jump back to page 1 whenever the visible set of trips changes shape — otherwise
+  // switching filters can strand you on a now out-of-range page.
+  useEffect(() => {
+    setPage(1)
+  }, [statusFilter, yearFilter, monthFilter, dateFilter])
 
   const tripColumns = [
     {
@@ -240,7 +468,14 @@ export default function TripsPage() {
     {
       key: 'departure_datetime',
       header: 'Departure',
-      render: (t: Trip) => <span className="text-sm">{formatDateTime(t.departure_datetime)}</span>,
+      render: (t: Trip) => (
+        <div>
+          <p className="text-sm">{formatDateTime(t.departure_datetime)}</p>
+          {t.boarding_time && (
+            <p className="text-xs text-gray-400">Board by {formatTime(t.boarding_time)}</p>
+          )}
+        </div>
+      ),
     },
     {
       key: 'seats',
@@ -266,11 +501,20 @@ export default function TripsPage() {
       key: 'amenities',
       header: 'Amenities',
       render: (t: Trip) => (
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1">
           {t.has_ac && <span title="AC" className="text-primary text-xs">❄️</span>}
           {t.has_wifi && <span title="WiFi" className="text-xs">📶</span>}
           {t.has_meal && <span title="Meal" className="text-xs">🍽️</span>}
           {t.has_usb && <span title="USB" className="text-xs">🔌</span>}
+          {!!t.amenities?.length && (
+            <span
+              className="inline-flex items-center gap-1 text-xs text-gray-400"
+              title={t.amenities.join(', ')}
+            >
+              <Sparkles className="w-3 h-3" />
+              +{t.amenities.length}
+            </span>
+          )}
         </div>
       ),
     },
@@ -371,6 +615,47 @@ export default function TripsPage() {
       </div>
 
       <Card padding={false}>
+        {/* Period filter */}
+        <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-gray-100">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500 mr-1">
+            <Calendar className="w-3.5 h-3.5" />
+            Period
+          </div>
+          <select
+            value={yearFilter}
+            onChange={e => { setYearFilter(e.target.value === 'all' ? 'all' : Number(e.target.value)); setDateFilter('') }}
+            disabled={!!dateFilter}
+            className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs bg-white disabled:opacity-40"
+          >
+            <option value="all">All years</option>
+            {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <select
+            value={monthFilter}
+            onChange={e => { setMonthFilter(e.target.value === 'all' ? 'all' : Number(e.target.value)); setDateFilter('') }}
+            disabled={!!dateFilter || yearFilter === 'all'}
+            className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs bg-white disabled:opacity-40"
+          >
+            <option value="all">All months</option>
+            {MONTH_OPTIONS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+          </select>
+          <span className="text-xs text-gray-400">or exact date</span>
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={e => setDateFilter(e.target.value)}
+            className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs"
+          />
+          {hasPeriodFilter && (
+            <button
+              onClick={() => { setYearFilter('all'); setMonthFilter('all'); setDateFilter('') }}
+              className="text-xs font-medium text-primary hover:underline ml-auto"
+            >
+              Show most recent
+            </button>
+          )}
+        </div>
+
         {/* Status filter */}
         <div className="flex flex-wrap gap-2 px-5 py-3 border-b border-gray-100">
           {(['all', 'scheduled', 'departed', 'delayed', 'completed', 'cancelled'] as const).map(s => {
@@ -389,22 +674,78 @@ export default function TripsPage() {
           })}
         </div>
         {filteredTrips.length === 0 && !tripsLoading ? (
-          <EmptyState
-            icon={Calendar}
-            title="No trips scheduled"
-            description="Schedule your first departure to start accepting bookings."
-            action={{ label: 'Schedule a trip', onClick: () => setShowTripModal(true) }}
-          />
+          hasPeriodFilter ? (
+            <EmptyState
+              icon={Calendar}
+              title="No trips in this period"
+              description="Try a different month, year, or clear the date filter."
+              action={{ label: 'Show most recent', onClick: () => { setYearFilter('all'); setMonthFilter('all'); setDateFilter('') } }}
+            />
+          ) : (
+            <EmptyState
+              icon={Calendar}
+              title="No trips scheduled"
+              description="Schedule your first departure to start accepting bookings."
+              action={{ label: 'Schedule a trip', onClick: () => setShowTripModal(true) }}
+            />
+          )
         ) : (
-          <DataTable columns={tripColumns} data={filteredTrips} loading={tripsLoading} rowKey={t => t.id} />
+          <>
+            <DataTable
+              columns={tripColumns}
+              data={pagedTrips}
+              loading={tripsLoading}
+              rowKey={t => t.id}
+              onRowClick={openTripDetails}
+            />
+            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
+              <p className="text-xs text-gray-500">
+                Showing {(page - 1) * TRIPS_PAGE_SIZE + 1}–{Math.min(page * TRIPS_PAGE_SIZE, filteredTrips.length)} of {filteredTrips.length} trips
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs text-gray-500 px-2 min-w-[90px] text-center">Page {page} of {totalPages}</span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </Card>
 
       {/* Create Trip Modal */}
-      <Modal open={showTripModal} onClose={() => setShowTripModal(false)} title="Schedule New Trip" size="lg">
-        <form onSubmit={tripForm.handleSubmit(handleScheduleSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Route" required error={tripForm.formState.errors.route_id?.message} className="col-span-2">
+      <Modal
+        open={showTripModal}
+        onClose={() => { setShowTripModal(false); resetRecurrence() }}
+        title="Schedule New Trip"
+        size="2xl"
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => { setShowTripModal(false); resetRecurrence() }}>
+              Cancel
+            </Button>
+            <Button type="submit" form="schedule-trip-form" loading={tripForm.formState.isSubmitting}>
+              {recurrence === 'none' ? 'Schedule Trip' : 'Schedule Trips'}
+            </Button>
+          </div>
+        }
+      >
+        <form id="schedule-trip-form" onSubmit={tripForm.handleSubmit(handleScheduleSubmit)} className="space-y-4">
+          <FormSection icon={Bus} title="Trip Details">
+            <FormField label="Route" required error={tripForm.formState.errors.route_id?.message}>
               <Select {...tripForm.register('route_id')} error={!!tripForm.formState.errors.route_id}>
                 <option value="">— Select a route —</option>
                 {activeRoutes.map(r => (
@@ -417,29 +758,33 @@ export default function TripsPage() {
                 </p>
               )}
             </FormField>
-            <FormField label="Departure" required error={tripForm.formState.errors.departure_datetime?.message}>
-              <Input {...tripForm.register('departure_datetime')} type="datetime-local" />
-            </FormField>
-            <FormField label="Arrival (est.)" error={tripForm.formState.errors.arrival_datetime?.message}>
-              <Input {...tripForm.register('arrival_datetime')} type="datetime-local" />
-            </FormField>
-            <FormField label="Total seats" required error={tripForm.formState.errors.total_seats?.message}>
-              <Input {...tripForm.register('total_seats')} type="number" min={1} max={100} />
-            </FormField>
-            <FormField label="Price (XOF)" required error={tripForm.formState.errors.price?.message}>
-              <Input {...tripForm.register('price')} type="number" min={1000} step={500} />
-            </FormField>
-            <FormField label="Bus / Vehicle number" error={tripForm.formState.errors.bus_number?.message}>
-              <Input {...tripForm.register('bus_number')} placeholder="e.g. TG-1234" />
-            </FormField>
-          </div>
 
-          {/* Recurrence */}
-          <div className="border border-gray-200 rounded-xl p-3.5 space-y-3">
-            <div className="flex items-center gap-2">
-              <Repeat className="w-4 h-4 text-gray-400" />
-              <p className="text-sm font-medium text-dark">Repeat</p>
+            <div className="grid grid-cols-3 gap-4">
+              <FormField label="Boarding time" hint="When passengers should arrive" error={tripForm.formState.errors.boarding_time?.message}>
+                <Input {...tripForm.register('boarding_time')} type="datetime-local" />
+              </FormField>
+              <FormField label="Departure" required error={tripForm.formState.errors.departure_datetime?.message}>
+                <Input {...tripForm.register('departure_datetime')} type="datetime-local" />
+              </FormField>
+              <FormField label="Arrival (est.)" error={tripForm.formState.errors.arrival_datetime?.message}>
+                <Input {...tripForm.register('arrival_datetime')} type="datetime-local" />
+              </FormField>
             </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <FormField label="Total seats" required error={tripForm.formState.errors.total_seats?.message}>
+                <Input {...tripForm.register('total_seats')} type="number" min={1} max={100} />
+              </FormField>
+              <FormField label="Price (XOF)" required error={tripForm.formState.errors.price?.message}>
+                <Input {...tripForm.register('price')} type="number" min={1000} step={500} />
+              </FormField>
+              <FormField label="Bus / Vehicle number" error={tripForm.formState.errors.bus_number?.message}>
+                <Input {...tripForm.register('bus_number')} placeholder="e.g. TG-1234" />
+              </FormField>
+            </div>
+          </FormSection>
+
+          <FormSection icon={Repeat} title="Repeat">
             <Select value={recurrence} onChange={e => setRecurrence(e.target.value as RecurrenceType)}>
               <option value="none">Does not repeat</option>
               <option value="daily">Daily</option>
@@ -472,6 +817,15 @@ export default function TripsPage() {
             {recurrence !== 'none' && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <p className="text-xs font-medium text-gray-500 w-full">Ends</p>
+                <label className="flex items-center gap-1.5 text-xs text-dark">
+                  <input
+                    type="radio"
+                    checked={recurEndType === 'never'}
+                    onChange={() => setRecurEndType('never')}
+                    className="accent-primary"
+                  />
+                  Never
+                </label>
                 <label className="flex items-center gap-1.5 text-xs text-dark">
                   <input
                     type="radio"
@@ -509,11 +863,9 @@ export default function TripsPage() {
                 <p className="text-xs text-gray-400 w-full">Capped at {RECURRENCE_MAX} trips per batch.</p>
               </div>
             )}
-          </div>
+          </FormSection>
 
-          {/* Amenities */}
-          <div>
-            <p className="text-sm font-medium text-dark mb-2">Amenities</p>
+          <FormSection icon={Sparkles} title="Amenities">
             <div className="grid grid-cols-4 gap-2">
               {[
                 { key: 'has_ac', label: '❄️ AC' },
@@ -527,15 +879,15 @@ export default function TripsPage() {
                 </label>
               ))}
             </div>
-          </div>
+            <AmenityTagInput value={customAmenities} onChange={setCustomAmenities} />
+          </FormSection>
 
-          {/* Travel requirements */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-sm font-medium text-dark">Travel requirements <span className="text-gray-400 font-normal">(optional)</span></p>
-                <p className="text-xs text-gray-400">Shown to passengers on this trip's details in the mobile app.</p>
-              </div>
+          <FormSection
+            icon={ClipboardList}
+            title="Travel requirements"
+            hint="Shown to passengers on this trip's details in the mobile app."
+          >
+            <div className="flex justify-end -mt-1">
               <Button
                 type="button"
                 variant="ghost"
@@ -548,7 +900,7 @@ export default function TripsPage() {
             </div>
 
             {/* Quick-add presets */}
-            <div className="flex flex-wrap gap-1.5 mb-3">
+            <div className="flex flex-wrap gap-1.5">
               {REQUIREMENT_PRESETS.map(preset => (
                 <button
                   key={preset}
@@ -566,10 +918,7 @@ export default function TripsPage() {
             </div>
 
             {requirementsArray.fields.length === 0 ? (
-              <p className="text-xs text-gray-400 flex items-center gap-1.5">
-                <ClipboardList className="w-3.5 h-3.5" />
-                No requirements added — this trip has no special conditions.
-              </p>
+              <p className="text-xs text-gray-400">No requirements added — this trip has no special conditions.</p>
             ) : (
               <div className="space-y-2">
                 {requirementsArray.fields.map((field, i) => (
@@ -600,15 +949,164 @@ export default function TripsPage() {
                 ))}
               </div>
             )}
-          </div>
-
-          <div className="flex justify-end gap-3 pt-1">
-            <Button type="button" variant="outline" onClick={() => { setShowTripModal(false); resetRecurrence() }}>Cancel</Button>
-            <Button type="submit" loading={tripForm.formState.isSubmitting}>
-              {recurrence === 'none' ? 'Schedule Trip' : 'Schedule Trips'}
-            </Button>
-          </div>
+          </FormSection>
         </form>
+      </Modal>
+
+      {/* Trip Details / Edit Modal */}
+      <Modal
+        open={!!editingTrip}
+        onClose={() => setEditingTrip(null)}
+        title="Trip Details"
+        size="2xl"
+        footer={
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-400">
+              {editingTrip && `Created ${formatDateTime(editingTrip.created_at)}`}
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => setEditingTrip(null)}>Cancel</Button>
+              <Button type="submit" form="edit-trip-form" loading={updateTrip.isPending}>Save Changes</Button>
+            </div>
+          </div>
+        }
+      >
+        {editingTrip && (
+          <form id="edit-trip-form" onSubmit={editForm.handleSubmit(handleEditSubmit)} className="space-y-4">
+            <FormSection icon={Bus} title="Trip Details">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Route" required error={editForm.formState.errors.route_id?.message}>
+                  <Select {...editForm.register('route_id')} error={!!editForm.formState.errors.route_id}>
+                    {editRouteOptions.map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.origin} → {r.destination}{!r.is_active ? ' (inactive)' : ''}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
+                <FormField label="Status" required error={editForm.formState.errors.status?.message}>
+                  <Select {...editForm.register('status')}>
+                    {(['scheduled', 'departed', 'completed', 'cancelled', 'delayed'] as const).map(s => (
+                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    ))}
+                  </Select>
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <FormField label="Boarding time" hint="When passengers should arrive" error={editForm.formState.errors.boarding_time?.message}>
+                  <Input {...editForm.register('boarding_time')} type="datetime-local" />
+                </FormField>
+                <FormField label="Departure" required error={editForm.formState.errors.departure_datetime?.message}>
+                  <Input {...editForm.register('departure_datetime')} type="datetime-local" />
+                </FormField>
+                <FormField label="Arrival (est.)" error={editForm.formState.errors.arrival_datetime?.message}>
+                  <Input {...editForm.register('arrival_datetime')} type="datetime-local" />
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-4 gap-4">
+                <FormField label="Total seats" required error={editForm.formState.errors.total_seats?.message}>
+                  <Input {...editForm.register('total_seats')} type="number" min={1} max={100} />
+                </FormField>
+                <FormField label="Available seats" required error={editForm.formState.errors.available_seats?.message}>
+                  <Input {...editForm.register('available_seats')} type="number" min={0} />
+                </FormField>
+                <FormField label="Price (XOF)" required error={editForm.formState.errors.price?.message}>
+                  <Input {...editForm.register('price')} type="number" min={1000} step={500} />
+                </FormField>
+                <FormField label="Bus / Vehicle number" error={editForm.formState.errors.bus_number?.message}>
+                  <Input {...editForm.register('bus_number')} placeholder="e.g. TG-1234" />
+                </FormField>
+              </div>
+            </FormSection>
+
+            <FormSection icon={Sparkles} title="Amenities">
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { key: 'has_ac', label: '❄️ AC' },
+                  { key: 'has_wifi', label: '📶 WiFi' },
+                  { key: 'has_meal', label: '🍽️ Meal' },
+                  { key: 'has_usb', label: '🔌 USB' },
+                ].map(a => (
+                  <label key={a.key} className="flex items-center gap-2 cursor-pointer p-2.5 rounded-lg border border-gray-200 hover:bg-background">
+                    <input type="checkbox" {...editForm.register(a.key as keyof TripEditForm)} className="accent-primary" />
+                    <span className="text-sm">{a.label}</span>
+                  </label>
+                ))}
+              </div>
+              <AmenityTagInput value={editCustomAmenities} onChange={setEditCustomAmenities} />
+            </FormSection>
+
+            <FormSection
+              icon={ClipboardList}
+              title="Travel requirements"
+              hint="Shown to passengers on this trip's details in the mobile app."
+            >
+              <div className="flex justify-end -mt-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  onClick={() => editRequirementsArray.append({ label: '', value: '' })}
+                >
+                  Add requirement
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {REQUIREMENT_PRESETS.map(preset => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      if (editRequirementsArray.fields.some((_, i) => editForm.getValues(`requirements.${i}.label`) === preset)) return
+                      editRequirementsArray.append({ label: preset, value: '' })
+                    }}
+                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:border-primary hover:text-primary transition"
+                  >
+                    <Plus className="w-3 h-3" />
+                    {preset}
+                  </button>
+                ))}
+              </div>
+
+              {editRequirementsArray.fields.length === 0 ? (
+                <p className="text-xs text-gray-400">No requirements added — this trip has no special conditions.</p>
+              ) : (
+                <div className="space-y-2">
+                  {editRequirementsArray.fields.map((field, i) => (
+                    <div key={field.id} className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <Input
+                          {...editForm.register(`requirements.${i}.label` as const)}
+                          placeholder="Requirement, e.g. Max luggage (bags)"
+                          error={!!editForm.formState.errors.requirements?.[i]?.label}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          {...editForm.register(`requirements.${i}.value` as const)}
+                          placeholder="Value, e.g. 2 bags per passenger"
+                          error={!!editForm.formState.errors.requirements?.[i]?.value}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => editRequirementsArray.remove(i)}
+                        className="p-2.5 rounded-lg text-gray-400 hover:text-error hover:bg-red-50 transition shrink-0"
+                        title="Remove requirement"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </FormSection>
+          </form>
+        )}
       </Modal>
     </div>
   )

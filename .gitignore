@@ -117,3 +117,4 @@ Thumbs.db
 *.cert
 *.crt
 secrets/
+push.sh

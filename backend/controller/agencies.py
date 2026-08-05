@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from data.database import get_db
-from schemas.agency import AgencyResponse, AgencyCreate
+from schemas.agency import AgencyResponse, AgencyCreate, AgencyUpdate
 from schemas.route import RouteSimpleResponse
-from services.agency_service import list_agencies, get_agency, get_agency_routes, create_agency
+from services.agency_service import list_agencies, get_agency, get_agency_routes, create_agency, update_agency
 
 router = APIRouter()
 
@@ -28,3 +28,8 @@ async def get_routes_for_agency(agency_id: str, db: AsyncSession = Depends(get_d
 @router.post("", response_model=AgencyResponse, status_code=201)
 async def create_new_agency(data: AgencyCreate, db: AsyncSession = Depends(get_db)):
     return await create_agency(db, data)
+
+
+@router.patch("/{agency_id}", response_model=AgencyResponse)
+async def update_existing_agency(agency_id: str, data: AgencyUpdate, db: AsyncSession = Depends(get_db)):
+    return await update_agency(db, agency_id, data)

@@ -12,6 +12,7 @@ class TripRequirement(BaseModel):
 class TripResponse(BaseModel):
     id: str
     route_id: str
+    boarding_time: Optional[datetime] = None
     departure_datetime: datetime
     arrival_datetime: Optional[datetime]
     total_seats: int
@@ -24,6 +25,7 @@ class TripResponse(BaseModel):
     has_ac:   bool = False
     has_usb:  bool = False
     requirements: Optional[List[TripRequirement]] = None
+    amenities: Optional[List[str]] = None
     route: Optional[RouteResponse] = None
 
     model_config = {"from_attributes": True}
@@ -31,6 +33,7 @@ class TripResponse(BaseModel):
 
 class TripCreate(BaseModel):
     route_id: str
+    boarding_time: Optional[datetime] = None
     departure_datetime: datetime
     arrival_datetime: Optional[datetime] = None
     total_seats: int = 50
@@ -41,15 +44,25 @@ class TripCreate(BaseModel):
     has_ac: bool = False
     has_usb: bool = False
     requirements: Optional[List[TripRequirement]] = None
+    amenities: Optional[List[str]] = None
 
 
 class TripUpdate(BaseModel):
-    status: Optional[str] = None
-    available_seats: Optional[int] = None
-    price: Optional[float] = None
+    route_id: Optional[str] = None
+    boarding_time: Optional[datetime] = None
     departure_datetime: Optional[datetime] = None
     arrival_datetime: Optional[datetime] = None
+    total_seats: Optional[int] = None
+    available_seats: Optional[int] = None
+    price: Optional[float] = None
+    bus_number: Optional[str] = None
+    status: Optional[str] = None
+    has_wifi: Optional[bool] = None
+    has_meal: Optional[bool] = None
+    has_ac: Optional[bool] = None
+    has_usb: Optional[bool] = None
     requirements: Optional[List[TripRequirement]] = None
+    amenities: Optional[List[str]] = None
 
 
 class TripSearch(BaseModel):

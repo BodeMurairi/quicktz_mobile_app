@@ -24,6 +24,7 @@ import TripsPage from './pages/schedule/TripsPage'
 import RoutesPage from './pages/schedule/RoutesPage'
 import CustomersPage from './pages/customers/CustomersPage'
 import MarketingPage from './pages/marketing/MarketingPage'
+import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
 
 const queryClient = new QueryClient({
@@ -70,6 +71,9 @@ export default function App() {
 
               {/* Marketing */}
               <Route path="/marketing" element={<MarketingPage />} />
+
+              {/* Profile */}
+              <Route path="/profile" element={<ProfilePage />} />
 
               {/* Settings */}
               <Route path="/settings" element={<SettingsPage />} />

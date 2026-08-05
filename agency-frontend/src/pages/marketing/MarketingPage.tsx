@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Megaphone, Tag, Bell, Building2, Eye, MousePointerClick,
-  Ticket, TrendingUp, Plus, CheckCircle2, XCircle,
+  Ticket, TrendingUp, Plus, ArrowRight,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -16,10 +17,9 @@ import EmptyState from '../../components/ui/EmptyState'
 import { FormField, Input, Select, Textarea } from '../../components/ui/FormField'
 import { mockPromotions, mockAnnouncements } from '../../utils/mockData'
 import { formatDate } from '../../utils/format'
-import { useAuth } from '../../contexts/AuthContext'
 import type { Promotion, Announcement } from '../../types'
 
-type ActiveTab = 'profile' | 'promotions' | 'announcements' | 'analytics'
+type ActiveTab = 'promotions' | 'announcements' | 'analytics'
 
 const promoSchema = z.object({
   code: z.string().min(3).toUpperCase(),
@@ -40,14 +40,12 @@ type PromoForm = z.infer<typeof promoSchema>
 type AnnForm = z.infer<typeof annSchema>
 
 export default function MarketingPage() {
-  const { agency } = useAuth()
-  const [tab, setTab] = useState<ActiveTab>('profile')
+  const navigate = useNavigate()
+  const [tab, setTab] = useState<ActiveTab>('promotions')
   const [promotions, setPromotions] = useState<Promotion[]>(mockPromotions)
   const [announcements, setAnnouncements] = useState<Announcement[]>(mockAnnouncements)
   const [showPromoModal, setShowPromoModal] = useState(false)
   const [showAnnModal, setShowAnnModal] = useState(false)
-  const [editingAgency, setEditingAgency] = useState(false)
-  const [agencyDesc, setAgencyDesc] = useState(agency?.description ?? '')
 
   const promoForm = useForm<PromoForm>({ resolver: zodResolver(promoSchema) })
   const annForm = useForm<AnnForm>({ resolver: zodResolver(annSchema), defaultValues: { target: 'all' } })
@@ -93,10 +91,25 @@ export default function MarketingPage() {
         <StatCard label="Active promotions" value={promotions.filter(p => p.is_active).length} icon={Tag} color="error" />
       </div>
 
+      {/* Profile banner */}
+      <Card className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <Building2 className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <p className="font-semibold text-dark text-sm">Manage your public agency profile</p>
+            <p className="text-xs text-gray-500">Photo gallery, locations, opening hours, and more.</p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />} onClick={() => navigate('/profile')}>
+          Go to Profile
+        </Button>
+      </Card>
+
       {/* Tabs */}
       <div className="flex gap-2 mb-4">
         {([
-          { key: 'profile', label: 'Agency Profile' },
           { key: 'promotions', label: `Promotions (${promotions.length})` },
           { key: 'announcements', label: `Announcements (${announcements.length})` },
           { key: 'analytics', label: 'Analytics' },
@@ -112,98 +125,6 @@ export default function MarketingPage() {
           </button>
         ))}
       </div>
-
-      {/* Profile */}
-      {tab === 'profile' && (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Public Agency Profile</CardTitle>
-                <Button variant="outline" size="sm" onClick={() => setEditingAgency(v => !v)}>
-                  {editingAgency ? 'Cancel' : 'Edit'}
-                </Button>
-              </CardHeader>
-              <div className="flex items-center gap-4 mb-5">
-                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                  <Building2 className="w-8 h-8 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-dark">{agency?.name ?? 'Your Agency'}</h2>
-                  {agency?.is_verified && (
-                    <div className="flex items-center gap-1 text-success text-xs font-medium mt-0.5">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Verified Agency
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm mb-5">
-                {[
-                  { label: 'Contact phone', value: agency?.contact_phone ?? '—' },
-                  { label: 'Contact email', value: agency?.contact_email ?? '—' },
-                  { label: 'Address', value: agency?.address ?? '—' },
-                ].map(item => (
-                  <div key={item.label}>
-                    <p className="text-xs text-gray-400 mb-0.5">{item.label}</p>
-                    <p className="font-medium text-dark">{item.value}</p>
-                  </div>
-                ))}
-              </div>
-
-              {editingAgency ? (
-                <div className="space-y-3">
-                  <FormField label="Description (shown on public profile)">
-                    <Textarea
-                      value={agencyDesc}
-                      onChange={e => setAgencyDesc(e.target.value)}
-                      rows={3}
-                      placeholder="Tell customers about your services, safety standards, and what makes you unique…"
-                    />
-                  </FormField>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setEditingAgency(false)}>Cancel</Button>
-                    <Button size="sm" onClick={() => setEditingAgency(false)}>Save changes</Button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Description</p>
-                  <p className="text-sm text-gray-600">{agencyDesc || 'No description added yet. Click "Edit" to add one.'}</p>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          <Card>
-            <CardTitle>Profile Completeness</CardTitle>
-            <div className="mt-4 space-y-3">
-              {[
-                { label: 'Agency name', done: !!agency?.name },
-                { label: 'Contact phone', done: !!agency?.contact_phone },
-                { label: 'Contact email', done: !!agency?.contact_email },
-                { label: 'Address', done: !!agency?.address },
-                { label: 'Description', done: !!agencyDesc },
-                { label: 'Verified status', done: !!agency?.is_verified },
-              ].map(item => (
-                <div key={item.label} className="flex items-center gap-2 text-sm">
-                  {item.done
-                    ? <CheckCircle2 className="w-4 h-4 text-success" />
-                    : <XCircle className="w-4 h-4 text-gray-300" />
-                  }
-                  <span className={item.done ? 'text-dark' : 'text-gray-400'}>{item.label}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 bg-background rounded-xl p-3 text-center">
-              <p className="text-2xl font-extrabold text-primary">
-                {Math.round(([!!agency?.name, !!agency?.contact_phone, !!agency?.contact_email, !!agency?.address, !!agencyDesc, !!agency?.is_verified].filter(Boolean).length / 6) * 100)}%
-              </p>
-              <p className="text-xs text-gray-500">profile complete</p>
-            </div>
-          </Card>
-        </div>
-      )}
 
       {/* Promotions */}
       {tab === 'promotions' && (

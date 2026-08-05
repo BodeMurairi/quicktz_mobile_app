@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, DateTime, Text
+from sqlalchemy import Column, String, Boolean, DateTime, Text, JSON
 from sqlalchemy.orm import relationship
 from data.database import Base
 
@@ -15,6 +15,9 @@ class Agency(Base):
     contact_email = Column(String, nullable=True)
     contact_phone = Column(String, nullable=True)
     address = Column(String, nullable=True)
+    gallery = Column(JSON, nullable=True)  # [str, ...] photo URLs
+    locations = Column(JSON, nullable=True)  # [{"label": str, "address": str, "phone": str|null}, ...]
+    opening_hours = Column(JSON, nullable=True)  # {"monday": {"open": "08:00", "close": "18:00", "closed": false}, ...}
     is_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

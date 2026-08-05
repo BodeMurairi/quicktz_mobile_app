@@ -10,6 +10,7 @@ class Trip(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     route_id = Column(String, ForeignKey("routes.id"), nullable=False)
+    boarding_time = Column(DateTime, nullable=True)  # when passengers should be at the station to board
     departure_datetime = Column(DateTime, nullable=False)
     arrival_datetime = Column(DateTime, nullable=True)
     total_seats = Column(Integer, nullable=False, default=50)
@@ -22,6 +23,7 @@ class Trip(Base):
     has_ac   = Column(Boolean, default=False)
     has_usb  = Column(Boolean, default=False)
     requirements = Column(JSON, nullable=True)  # [{"label": str, "value": str}, ...] agency-defined travel requirements
+    amenities = Column(JSON, nullable=True)  # [str, ...] free-form amenities beyond the has_wifi/has_meal/has_ac/has_usb flags
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

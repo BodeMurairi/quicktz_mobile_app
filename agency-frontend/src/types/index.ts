@@ -28,6 +28,22 @@ export interface AuthResponse {
 
 // ── Agency ────────────────────────────────────────────────────────────────────
 
+export interface AgencyLocation {
+  label: string
+  address: string
+  phone?: string | null
+}
+
+export interface AgencyDayHours {
+  open?: string | null   // "HH:MM"
+  close?: string | null  // "HH:MM"
+  closed: boolean
+}
+
+export const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const
+export type WeekdayKey = typeof WEEKDAY_KEYS[number]
+export type AgencyOpeningHours = Partial<Record<WeekdayKey, AgencyDayHours>>
+
 export interface Agency {
   id: string
   name: string
@@ -36,6 +52,9 @@ export interface Agency {
   contact_email: string | null
   contact_phone: string | null
   address: string | null
+  gallery?: string[] | null
+  locations?: AgencyLocation[] | null
+  opening_hours?: AgencyOpeningHours | null
   is_verified: boolean
   is_active: boolean
   created_at: string
@@ -45,9 +64,13 @@ export interface Agency {
 export interface AgencyCreate {
   name: string
   description?: string
+  logo_url?: string
   contact_email?: string
   contact_phone?: string
   address?: string
+  gallery?: string[]
+  locations?: AgencyLocation[]
+  opening_hours?: AgencyOpeningHours
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -90,6 +113,7 @@ export interface TripRequirement {
 export interface Trip {
   id: string
   route_id: string
+  boarding_time?: string | null
   departure_datetime: string
   arrival_datetime: string | null
   total_seats: number
@@ -102,6 +126,7 @@ export interface Trip {
   has_ac: boolean
   has_usb: boolean
   requirements?: TripRequirement[] | null
+  amenities?: string[] | null
   is_active: boolean
   created_at: string
   route?: Route
@@ -109,6 +134,7 @@ export interface Trip {
 
 export interface TripCreate {
   route_id: string
+  boarding_time?: string
   departure_datetime: string
   arrival_datetime?: string
   total_seats: number
@@ -119,14 +145,25 @@ export interface TripCreate {
   has_ac?: boolean
   has_usb?: boolean
   requirements?: TripRequirement[]
+  amenities?: string[]
 }
 
 export interface TripUpdate {
-  status?: TripStatus
-  available_seats?: number
-  price?: number
+  route_id?: string
+  boarding_time?: string
   departure_datetime?: string
   arrival_datetime?: string
+  total_seats?: number
+  available_seats?: number
+  price?: number
+  bus_number?: string
+  status?: TripStatus
+  has_wifi?: boolean
+  has_meal?: boolean
+  has_ac?: boolean
+  has_usb?: boolean
+  requirements?: TripRequirement[]
+  amenities?: string[]
 }
 
 // ── Booking ───────────────────────────────────────────────────────────────────

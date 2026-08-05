@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from models.agency import Agency
 from models.route import Route
-from schemas.agency import AgencyCreate
+from schemas.agency import AgencyCreate, AgencyUpdate
 
 
 async def list_agencies(db: AsyncSession) -> List[Agency]:
@@ -33,6 +33,15 @@ async def get_agency_routes(db: AsyncSession, agency_id: str) -> list[Route]:
 async def create_agency(db: AsyncSession, data: AgencyCreate) -> Agency:
     agency = Agency(id=str(uuid.uuid4()), **data.model_dump())
     db.add(agency)
+    await db.commit()
+    await db.refresh(agency)
+    return agency
+
+
+async def update_agency(db: AsyncSession, agency_id: str, data: AgencyUpdate) -> Agency:
+    agency = await get_agency(db, agency_id)
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(agency, field, value)
     await db.commit()
     await db.refresh(agency)
     return agency

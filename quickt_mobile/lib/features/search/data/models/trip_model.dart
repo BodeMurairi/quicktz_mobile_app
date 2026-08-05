@@ -105,6 +105,7 @@ class TripModel {
   final bool hasAc;
   final bool hasUsb;
   final List<TripRequirement> requirements;
+  final List<String> amenities;
   final RouteModel? route;
 
   TripModel({
@@ -122,6 +123,7 @@ class TripModel {
     this.hasAc = false,
     this.hasUsb = false,
     this.requirements = const [],
+    this.amenities = const [],
     this.route,
   });
 
@@ -143,6 +145,10 @@ class TripModel {
         hasUsb: json['has_usb'] ?? false,
         requirements: (json['requirements'] as List<dynamic>?)
                 ?.map((r) => TripRequirement.fromJson(r as Map<String, dynamic>))
+                .toList() ??
+            const [],
+        amenities: (json['amenities'] as List<dynamic>?)
+                ?.map((a) => a as String)
                 .toList() ??
             const [],
         route: json['route'] != null
