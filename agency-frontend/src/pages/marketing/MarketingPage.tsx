@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Megaphone, Tag, Bell, Building2, Eye, MousePointerClick,
-  Ticket, TrendingUp, Plus, ArrowRight,
+  Ticket, TrendingUp, Plus, ArrowRight, CalendarClock, Percent, Route as RouteIcon, Hash,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -46,6 +46,7 @@ export default function MarketingPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>(mockAnnouncements)
   const [showPromoModal, setShowPromoModal] = useState(false)
   const [showAnnModal, setShowAnnModal] = useState(false)
+  const [viewingPromo, setViewingPromo] = useState<Promotion | null>(null)
 
   const promoForm = useForm<PromoForm>({ resolver: zodResolver(promoSchema) })
   const annForm = useForm<AnnForm>({ resolver: zodResolver(annSchema), defaultValues: { target: 'all' } })
@@ -136,7 +137,11 @@ export default function MarketingPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             {promotions.map(p => (
-              <Card key={p.id} className={!p.is_active ? 'opacity-60' : ''}>
+              <Card
+                key={p.id}
+                onClick={() => setViewingPromo(p)}
+                className={!p.is_active ? 'opacity-60' : ''}
+              >
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -176,7 +181,7 @@ export default function MarketingPage() {
                   <Button
                     variant={p.is_active ? 'outline' : 'secondary'}
                     size="sm"
-                    onClick={() => togglePromo(p.id)}
+                    onClick={e => { e.stopPropagation(); togglePromo(p.id) }}
                   >
                     {p.is_active ? 'Deactivate' : 'Activate'}
                   </Button>
@@ -335,6 +340,104 @@ export default function MarketingPage() {
             <Button type="submit">Send Announcement</Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Promotion Detail Modal */}
+      <Modal
+        open={!!viewingPromo}
+        onClose={() => setViewingPromo(null)}
+        title="Promotion Details"
+        size="lg"
+      >
+        {viewingPromo && (() => {
+          const p = viewingPromo
+          const today = new Date()
+          const until = new Date(p.valid_until)
+          const from = new Date(p.valid_from)
+          const daysRemaining = Math.ceil((until.getTime() - today.getTime()) / 86_400_000)
+          const hasEnded = daysRemaining < 0
+          const hasStarted = today >= from
+          const usagePercent = Math.min((p.used_count / p.max_uses) * 100, 100)
+          const remainingUses = Math.max(p.max_uses - p.used_count, 0)
+
+          return (
+            <div className="space-y-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-mono font-bold text-primary text-2xl">{p.code}</span>
+                    <Badge label={p.is_active ? 'active' : 'inactive'} color={p.is_active ? 'success' : 'secondary'} />
+                    {p.is_active && hasEnded && <Badge label="expired" color="error" />}
+                    {p.is_active && !hasEnded && !hasStarted && <Badge label="upcoming" color="warning" />}
+                  </div>
+                  <p className="text-sm text-gray-600">{p.description}</p>
+                </div>
+                <div className="text-right shrink-0 ml-4">
+                  <p className="text-3xl font-extrabold text-dark">{p.discount_percent}%</p>
+                  <p className="text-xs text-gray-400">discount</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-gray-50 flex items-start gap-2.5">
+                  <CalendarClock className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-gray-400">Valid period</p>
+                    <p className="text-sm font-medium text-dark">{formatDate(p.valid_from)} — {formatDate(p.valid_until)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {hasEnded ? 'Ended' : hasStarted ? `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining` : `Starts in ${Math.abs(Math.ceil((from.getTime() - today.getTime()) / 86_400_000))} day(s)`}
+                    </p>
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-gray-50 flex items-start gap-2.5">
+                  <Hash className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-gray-400">Usage</p>
+                    <p className="text-sm font-medium text-dark">{p.used_count} of {p.max_uses} used</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{remainingUses} redemption{remainingUses === 1 ? '' : 's'} left</p>
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-gray-50 flex items-start gap-2.5">
+                  <Percent className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-gray-400">Redemption rate</p>
+                    <p className="text-sm font-medium text-dark">{usagePercent.toFixed(1)}%</p>
+                  </div>
+                </div>
+                <div className="p-3 rounded-xl bg-gray-50 flex items-start gap-2.5">
+                  <RouteIcon className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs text-gray-400">Applicable routes</p>
+                    <p className="text-sm font-medium text-dark">{p.routes.join(', ')}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-xs font-medium text-gray-500">Usage progress</p>
+                  <p className="text-xs text-gray-400">{p.used_count} / {p.max_uses}</p>
+                </div>
+                <div className="w-full h-2 bg-gray-100 rounded-full">
+                  <div
+                    className="h-2 bg-primary rounded-full transition-all"
+                    style={{ width: `${usagePercent}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-1 border-t border-gray-100">
+                <Button variant="outline" onClick={() => setViewingPromo(null)}>Close</Button>
+                <Button
+                  variant={p.is_active ? 'outline' : 'secondary'}
+                  onClick={() => { togglePromo(p.id); setViewingPromo(null) }}
+                >
+                  {p.is_active ? 'Deactivate' : 'Activate'}
+                </Button>
+              </div>
+            </div>
+          )
+        })()}
       </Modal>
     </div>
   )

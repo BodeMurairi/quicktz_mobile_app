@@ -8,6 +8,12 @@ class AgencyLocation(BaseModel):
     phone: Optional[str] = None
 
 
+class AgencyContact(BaseModel):
+    label: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+
 class AgencyDayHours(BaseModel):
     open: Optional[str] = None   # "HH:MM"
     close: Optional[str] = None  # "HH:MM"
@@ -24,6 +30,7 @@ class AgencyResponse(BaseModel):
     address: Optional[str]
     gallery: Optional[List[str]] = None
     locations: Optional[List[AgencyLocation]] = None
+    contacts: Optional[List[AgencyContact]] = None
     opening_hours: Optional[Dict[str, AgencyDayHours]] = None
     is_verified: bool
     is_active: bool
@@ -40,6 +47,7 @@ class AgencyCreate(BaseModel):
     address: Optional[str] = None
     gallery: Optional[List[str]] = None
     locations: Optional[List[AgencyLocation]] = None
+    contacts: Optional[List[AgencyContact]] = None
     opening_hours: Optional[Dict[str, AgencyDayHours]] = None
 
 
@@ -52,4 +60,5 @@ class AgencyUpdate(BaseModel):
     address: Optional[str] = None
     gallery: Optional[List[str]] = None
     locations: Optional[List[AgencyLocation]] = None
+    contacts: Optional[List[AgencyContact]] = None
     opening_hours: Optional[Dict[str, AgencyDayHours]] = None

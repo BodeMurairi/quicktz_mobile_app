@@ -8,7 +8,7 @@ from config.settings import settings
 from data.database import engine, Base
 import models  # noqa: F401 — registers all ORM models with Base
 
-from controller import auth, users, agencies, trips, routes, bookings, tickets, notifications, agent_chat
+from controller import auth, users, agencies, trips, routes, bookings, tickets, notifications, agent_chat, uploads
 
 
 @asynccontextmanager
@@ -32,6 +32,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Total-Count"],
 )
 
 PREFIX = "/api/v1"
@@ -44,6 +45,7 @@ app.include_router(bookings.router, prefix=f"{PREFIX}/bookings", tags=["Bookings
 app.include_router(tickets.router, prefix=f"{PREFIX}/tickets", tags=["Tickets"])
 app.include_router(notifications.router, prefix=f"{PREFIX}/notifications", tags=["Notifications"])
 app.include_router(agent_chat.router, prefix=f"{PREFIX}/agent", tags=["AI Agent"])
+app.include_router(uploads.router, prefix=f"{PREFIX}/uploads", tags=["Uploads"])
 
 
 @app.get("/", tags=["Health"])

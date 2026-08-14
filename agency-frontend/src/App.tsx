@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
+import { ConversationsProvider } from './contexts/ConversationsContext'
 
 // Error boundary
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -20,9 +21,11 @@ import BookingsPage from './pages/bookings/BookingsPage'
 import BookingDetailPage from './pages/bookings/BookingDetailPage'
 import ManualBookingPage from './pages/bookings/ManualBookingPage'
 import FinancePage from './pages/finance/FinancePage'
+import TransactionsPage from './pages/TransactionsPage'
 import TripsPage from './pages/schedule/TripsPage'
 import RoutesPage from './pages/schedule/RoutesPage'
 import CustomersPage from './pages/customers/CustomersPage'
+import MessagesPage from './pages/MessagesPage'
 import MarketingPage from './pages/marketing/MarketingPage'
 import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
@@ -42,6 +45,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
       <AuthProvider>
+      <ConversationsProvider>
         <BrowserRouter>
           <Routes>
             {/* Public */}
@@ -60,6 +64,7 @@ export default function App() {
 
               {/* Finance */}
               <Route path="/finance" element={<FinancePage />} />
+              <Route path="/transactions" element={<TransactionsPage />} />
 
               {/* Schedule */}
               <Route path="/schedule" element={<TripsPage />} />
@@ -68,6 +73,9 @@ export default function App() {
               {/* Customers */}
               <Route path="/customers" element={<CustomersPage />} />
               <Route path="/customers/reviews" element={<CustomersPage />} />
+
+              {/* Messages */}
+              <Route path="/messages" element={<MessagesPage />} />
 
               {/* Marketing */}
               <Route path="/marketing" element={<MarketingPage />} />
@@ -84,6 +92,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </BrowserRouter>
+      </ConversationsProvider>
       </AuthProvider>
       </ToastProvider>
     </QueryClientProvider>

@@ -17,6 +17,7 @@ class Agency(Base):
     address = Column(String, nullable=True)
     gallery = Column(JSON, nullable=True)  # [str, ...] photo URLs
     locations = Column(JSON, nullable=True)  # [{"label": str, "address": str, "phone": str|null}, ...]
+    contacts = Column(JSON, nullable=True)  # [{"label": str, "phone": str|null, "email": str|null}, ...] additional contacts (branches, departments, etc.)
     opening_hours = Column(JSON, nullable=True)  # {"monday": {"open": "08:00", "close": "18:00", "closed": false}, ...}
     is_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)

@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { useMutation } from '@tanstack/react-query'
 import {
   Building2, CheckCircle2, XCircle, Plus, Trash2,
-  MapPin, Clock, Image as ImageIcon, Pencil, Upload,
+  MapPin, Clock, Image as ImageIcon, Pencil, Upload, Phone,
 } from 'lucide-react'
 import Header from '../components/layout/Header'
 import { Card, CardHeader, CardTitle } from '../components/ui/Card'
@@ -15,6 +15,7 @@ import { FormField, Input, Textarea } from '../components/ui/FormField'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { agencyApi } from '../api/agencies'
+import { uploadApi } from '../api/uploads'
 import { WEEKDAY_KEYS } from '../types'
 import type { AgencyCreate, AgencyOpeningHours, WeekdayKey } from '../types'
 
@@ -47,6 +48,11 @@ const profileSchema = z.object({
     address: z.string().min(1, 'Required'),
     phone: z.string().optional(),
   })).optional(),
+  contacts: z.array(z.object({
+    label: z.string().min(1, 'Required'),
+    phone: z.string().optional(),
+    email: z.string().optional(),
+  })).optional(),
   opening_hours: z.object({
     monday: dayHoursSchema,
     tuesday: dayHoursSchema,
@@ -75,50 +81,19 @@ function formatHours(h?: { open?: string | null; close?: string | null; closed: 
   return `${h.open} – ${h.close}`
 }
 
-// No file-storage backend exists yet, so the logo is downscaled client-side and
-// stored as a data URI in logo_url — the same string field a pasted URL would use.
-function resizeImageToDataUrl(file: File, maxDim = 512): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = () => reject(reader.error ?? new Error('Could not read file'))
-    reader.onload = () => {
-      const img = new Image()
-      img.onerror = () => reject(new Error('Could not load image'))
-      img.onload = () => {
-        let { width, height } = img
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width)
-            width = maxDim
-          } else {
-            width = Math.round((width * maxDim) / height)
-            height = maxDim
-          }
-        }
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) { reject(new Error('Canvas not supported')); return }
-        ctx.drawImage(img, 0, 0, width, height)
-        resolve(canvas.toDataURL('image/jpeg', 0.85))
-      }
-      img.src = reader.result as string
-    }
-    reader.readAsDataURL(file)
-  })
-}
-
 export default function ProfilePage() {
   const { agency, selectAgency } = useAuth()
   const toast = useToast()
   const [editing, setEditing] = useState(false)
   const [logoUploading, setLogoUploading] = useState(false)
+  const [galleryUploading, setGalleryUploading] = useState(false)
   const logoFileInputRef = useRef<HTMLInputElement>(null)
+  const galleryFileInputRef = useRef<HTMLInputElement>(null)
 
   const profileForm = useForm<ProfileForm>({ resolver: zodResolver(profileSchema) })
   const galleryArray = useFieldArray({ control: profileForm.control, name: 'gallery' })
   const locationsArray = useFieldArray({ control: profileForm.control, name: 'locations' })
+  const contactsArray = useFieldArray({ control: profileForm.control, name: 'contacts' })
   const logoUrlValue = profileForm.watch('logo_url')
 
   async function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -131,12 +106,32 @@ export default function ProfilePage() {
     }
     setLogoUploading(true)
     try {
-      const dataUrl = await resizeImageToDataUrl(file)
-      profileForm.setValue('logo_url', dataUrl, { shouldDirty: true })
+      const { url } = await uploadApi.upload(file, 'logos')
+      profileForm.setValue('logo_url', url, { shouldDirty: true })
     } catch {
-      toast.error('Could not process that image. Please try another file.')
+      toast.error('Could not upload that image. Please try another file.')
     } finally {
       setLogoUploading(false)
+    }
+  }
+
+  async function handleGalleryFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (files.length === 0) return
+    const imageFiles = files.filter(f => f.type.startsWith('image/'))
+    if (imageFiles.length < files.length) {
+      toast.error('Some files were skipped — only images are supported.')
+    }
+    if (imageFiles.length === 0) return
+    setGalleryUploading(true)
+    try {
+      const uploaded = await Promise.all(imageFiles.map(f => uploadApi.upload(f, 'gallery')))
+      uploaded.forEach(({ url }) => galleryArray.append({ value: url }))
+    } catch {
+      toast.error('Could not upload one or more photos. Please try again.')
+    } finally {
+      setGalleryUploading(false)
     }
   }
 
@@ -161,6 +156,7 @@ export default function ProfilePage() {
       address: agency.address ?? '',
       gallery: (agency.gallery ?? []).map(value => ({ value })),
       locations: (agency.locations ?? []).map(l => ({ label: l.label, address: l.address, phone: l.phone ?? '' })),
+      contacts: (agency.contacts ?? []).map(c => ({ label: c.label, phone: c.phone ?? '', email: c.email ?? '' })),
       opening_hours: defaultOpeningHours(agency.opening_hours),
     })
     setEditing(true)
@@ -176,6 +172,7 @@ export default function ProfilePage() {
       address: d.address || undefined,
       gallery: (d.gallery ?? []).map(g => g.value),
       locations: d.locations ?? [],
+      contacts: d.contacts ?? [],
       opening_hours: d.opening_hours,
     })
   }
@@ -194,6 +191,7 @@ export default function ProfilePage() {
     { label: 'Profile image', done: !!agency?.logo_url },
     { label: 'Photo gallery', done: !!agency?.gallery?.length },
     { label: 'Locations', done: !!agency?.locations?.length },
+    { label: 'Additional contacts', done: !!agency?.contacts?.length },
     { label: 'Opening hours', done: hasHours },
     { label: 'Verified status', done: !!agency?.is_verified },
   ]
@@ -270,7 +268,7 @@ export default function ProfilePage() {
                             </Button>
                           )}
                         </div>
-                        <p className="text-xs text-gray-400 mt-1.5">PNG or JPG, resized automatically.</p>
+                        <p className="text-xs text-gray-400 mt-1.5">PNG or JPG.</p>
                       </div>
                       <input
                         ref={logoFileInputRef}
@@ -347,28 +345,35 @@ export default function ProfilePage() {
               )}
             </Card>
 
-            {/* Photo gallery */}
+            {/* Additional contacts */}
             <Card>
               <CardHeader>
-                <CardTitle>Photo Gallery</CardTitle>
+                <CardTitle>Additional Contacts</CardTitle>
               </CardHeader>
 
               {editing ? (
                 <div className="space-y-3">
-                  {galleryArray.fields.map((field, i) => (
-                    <div key={field.id} className="flex items-start gap-2">
-                      <div className="flex-1">
-                        <Input
-                          {...profileForm.register(`gallery.${i}.value` as const)}
-                          placeholder="https://… (image URL)"
-                          error={!!profileForm.formState.errors.gallery?.[i]?.value}
-                        />
-                      </div>
+                  {contactsArray.fields.map((field, i) => (
+                    <div key={field.id} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-start">
+                      <Input
+                        {...profileForm.register(`contacts.${i}.label` as const)}
+                        placeholder="Label, e.g. Headquarters"
+                        error={!!profileForm.formState.errors.contacts?.[i]?.label}
+                      />
+                      <Input
+                        {...profileForm.register(`contacts.${i}.phone` as const)}
+                        placeholder="Phone"
+                      />
+                      <Input
+                        {...profileForm.register(`contacts.${i}.email` as const)}
+                        type="email"
+                        placeholder="Email (optional)"
+                      />
                       <button
                         type="button"
-                        onClick={() => galleryArray.remove(i)}
+                        onClick={() => contactsArray.remove(i)}
                         className="p-2.5 rounded-lg text-gray-400 hover:text-error hover:bg-red-50 transition shrink-0"
-                        title="Remove photo"
+                        title="Remove contact"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -379,10 +384,106 @@ export default function ProfilePage() {
                     variant="outline"
                     size="sm"
                     leftIcon={<Plus className="w-3.5 h-3.5" />}
-                    onClick={() => galleryArray.append({ value: '' })}
+                    onClick={() => contactsArray.append({ label: '', phone: '', email: '' })}
                   >
-                    Add photo
+                    Add contact
                   </Button>
+                </div>
+              ) : agency?.contacts?.length ? (
+                <div className="space-y-3">
+                  {agency.contacts.map((c, i) => (
+                    <div key={c.label + i} className="flex items-start gap-3 p-3 rounded-xl bg-background">
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Phone className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-dark text-sm">{c.label}</p>
+                        {c.phone && <p className="text-sm text-gray-500">{c.phone}</p>}
+                        {c.email && <p className="text-xs text-gray-400 mt-0.5">{c.email}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={Phone}
+                  title="No additional contacts"
+                  description="Add contacts for specific branches, departments, or teams — e.g. Headquarters, Kara Branch."
+                  action={{ label: 'Edit Profile', onClick: startEditing }}
+                />
+              )}
+            </Card>
+
+            {/* Photo gallery */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Photo Gallery</CardTitle>
+              </CardHeader>
+
+              {editing ? (
+                <div className="space-y-3">
+                  {galleryArray.fields.map((field, i) => {
+                    const url = profileForm.watch(`gallery.${i}.value`)
+                    return (
+                      <div key={field.id} className="flex items-start gap-2">
+                        {url ? (
+                          <img
+                            src={url}
+                            alt=""
+                            className="w-11 h-11 rounded-lg object-cover bg-gray-100 border border-gray-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-11 h-11 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                            <ImageIcon className="w-4 h-4 text-gray-300" />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <Input
+                            {...profileForm.register(`gallery.${i}.value` as const)}
+                            placeholder="https://… (image URL)"
+                            error={!!profileForm.formState.errors.gallery?.[i]?.value}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => galleryArray.remove(i)}
+                          className="p-2.5 rounded-lg text-gray-400 hover:text-error hover:bg-red-50 transition shrink-0"
+                          title="Remove photo"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Upload className="w-3.5 h-3.5" />}
+                      loading={galleryUploading}
+                      onClick={() => galleryFileInputRef.current?.click()}
+                    >
+                      Upload from computer
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      leftIcon={<Plus className="w-3.5 h-3.5" />}
+                      onClick={() => galleryArray.append({ value: '' })}
+                    >
+                      Add photo URL
+                    </Button>
+                  </div>
+                  <input
+                    ref={galleryFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleGalleryFileChange}
+                  />
                 </div>
               ) : agency?.gallery?.length ? (
                 <div className="grid grid-cols-4 gap-3">

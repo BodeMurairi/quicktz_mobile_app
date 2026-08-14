@@ -43,6 +43,7 @@ export default function RoutesPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const [showRouteModal, setShowRouteModal] = useState(false)
+  const [editingRoute, setEditingRoute] = useState<Route | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
@@ -63,8 +64,7 @@ export default function RoutesPage() {
     mutationFn: (data: RouteForm) => routeApi.create({ ...data, agency_id: agency!.id }),
     onSuccess: (route) => {
       qc.invalidateQueries({ queryKey: ['routes'] })
-      setShowRouteModal(false)
-      routeForm.reset()
+      closeRouteModal()
       toast.success(`Route ${route.origin} → ${route.destination} created.`)
     },
     onError: () => toast.error('Could not create the route. Please try again.'),
@@ -83,8 +83,48 @@ export default function RoutesPage() {
     onError: () => toast.error('Could not update the route. Please try again.'),
   })
 
+  const updateRoute = useMutation({
+    mutationFn: (data: RouteForm) => routeApi.update(editingRoute!.id, data),
+    onSuccess: (route) => {
+      qc.invalidateQueries({ queryKey: ['routes'] })
+      closeRouteModal()
+      toast.success(`Route ${route.origin} → ${route.destination} updated.`)
+    },
+    onError: () => toast.error('Could not update the route. Please try again.'),
+  })
+
   const routeForm = useForm<RouteForm>({ resolver: zodResolver(routeSchema), defaultValues: { stops: [] } })
   const stopsArray = useFieldArray({ control: routeForm.control, name: 'stops' })
+
+  function openCreateRoute() {
+    routeForm.reset({ origin: '', destination: '', distance_km: undefined, duration_minutes: undefined, stops: [] })
+    setShowRouteModal(true)
+  }
+
+  function openEditRoute(route: Route) {
+    routeForm.reset({
+      origin: route.origin,
+      destination: route.destination,
+      distance_km: route.distance_km ?? undefined,
+      duration_minutes: route.duration_minutes ?? undefined,
+      stops: (route.stops ?? []).map(s => ({ name: s.name, duration_minutes: s.duration_minutes ?? undefined })),
+    })
+    setEditingRoute(route)
+  }
+
+  function closeRouteModal() {
+    setShowRouteModal(false)
+    setEditingRoute(null)
+    routeForm.reset({ stops: [] })
+  }
+
+  function handleRouteSubmit(data: RouteForm) {
+    if (editingRoute) {
+      updateRoute.mutate(data)
+    } else {
+      createRoute.mutate(data)
+    }
+  }
 
   const tripCountByRoute = trips.reduce<Record<string, number>>((acc, t) => {
     acc[t.route_id] = (acc[t.route_id] ?? 0) + 1
@@ -192,7 +232,7 @@ export default function RoutesPage() {
             <Button variant="outline" size="sm" leftIcon={<CalendarClock className="w-4 h-4" />} onClick={() => navigate('/schedule')}>
               Manage Trips
             </Button>
-            <Button size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowRouteModal(true)}>
+            <Button size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={openCreateRoute}>
               New Route
             </Button>
           </div>
@@ -254,16 +294,21 @@ export default function RoutesPage() {
             icon={RouteIcon}
             title="No routes found"
             description="Create a route first, then schedule trips on it."
-            action={{ label: 'Create a route', onClick: () => setShowRouteModal(true) }}
+            action={{ label: 'Create a route', onClick: openCreateRoute }}
           />
         ) : (
-          <DataTable columns={routeColumns} data={filteredRoutes} loading={routesLoading} rowKey={r => r.id} />
+          <DataTable columns={routeColumns} data={filteredRoutes} loading={routesLoading} rowKey={r => r.id} onRowClick={openEditRoute} />
         )}
       </Card>
 
-      {/* Create Route Modal */}
-      <Modal open={showRouteModal} onClose={() => setShowRouteModal(false)} title="Create New Route" size="lg">
-        <form onSubmit={routeForm.handleSubmit(d => createRoute.mutate(d))} className="space-y-4">
+      {/* Create / Edit Route Modal */}
+      <Modal
+        open={showRouteModal || !!editingRoute}
+        onClose={closeRouteModal}
+        title={editingRoute ? 'Edit Route' : 'Create New Route'}
+        size="lg"
+      >
+        <form onSubmit={routeForm.handleSubmit(handleRouteSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Origin" required error={routeForm.formState.errors.origin?.message}>
               <Select {...routeForm.register('origin')} error={!!routeForm.formState.errors.origin}>
@@ -338,14 +383,16 @@ export default function RoutesPage() {
             )}
           </div>
 
-          {createRoute.error && (
+          {(createRoute.error || updateRoute.error) && (
             <p className="text-sm text-error bg-red-50 px-3 py-2 rounded-lg">
-              {(createRoute.error as Error).message}
+              {((editingRoute ? updateRoute.error : createRoute.error) as Error).message}
             </p>
           )}
           <div className="flex justify-end gap-3 pt-1">
-            <Button type="button" variant="outline" onClick={() => setShowRouteModal(false)}>Cancel</Button>
-            <Button type="submit" loading={createRoute.isPending}>Create Route</Button>
+            <Button type="button" variant="outline" onClick={closeRouteModal}>Cancel</Button>
+            <Button type="submit" loading={editingRoute ? updateRoute.isPending : createRoute.isPending}>
+              {editingRoute ? 'Save Changes' : 'Create Route'}
+            </Button>
           </div>
         </form>
       </Modal>

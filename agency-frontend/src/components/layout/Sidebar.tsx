@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Bus, LayoutDashboard, Ticket, DollarSign, Calendar, Route as RouteIcon,
-  Users, Megaphone, Settings, LogOut, ChevronRight, Building2,
+  Users, Megaphone, Settings, LogOut, ChevronRight, Building2, Receipt, MessageCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../contexts/AuthContext'
@@ -28,6 +28,7 @@ const NAV: NavGroup[] = [
     title: 'Operations',
     items: [
       { label: 'Bookings', href: '/bookings', icon: Ticket },
+      { label: 'Transactions', href: '/transactions', icon: Receipt },
       { label: 'Finance', href: '/finance', icon: DollarSign },
       { label: 'Trips', href: '/schedule', icon: Calendar },
       { label: 'Routes', href: '/routes', icon: RouteIcon },
@@ -37,6 +38,7 @@ const NAV: NavGroup[] = [
     title: 'Engagement',
     items: [
       { label: 'Customers', href: '/customers', icon: Users },
+      { label: 'Messages', href: '/messages', icon: MessageCircle },
       { label: 'Marketing', href: '/marketing', icon: Megaphone },
     ],
   },

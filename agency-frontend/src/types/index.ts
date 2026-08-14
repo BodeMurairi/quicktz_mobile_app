@@ -34,6 +34,12 @@ export interface AgencyLocation {
   phone?: string | null
 }
 
+export interface AgencyContact {
+  label: string
+  phone?: string | null
+  email?: string | null
+}
+
 export interface AgencyDayHours {
   open?: string | null   // "HH:MM"
   close?: string | null  // "HH:MM"
@@ -54,6 +60,7 @@ export interface Agency {
   address: string | null
   gallery?: string[] | null
   locations?: AgencyLocation[] | null
+  contacts?: AgencyContact[] | null
   opening_hours?: AgencyOpeningHours | null
   is_verified: boolean
   is_active: boolean
@@ -70,6 +77,7 @@ export interface AgencyCreate {
   address?: string
   gallery?: string[]
   locations?: AgencyLocation[]
+  contacts?: AgencyContact[]
   opening_hours?: AgencyOpeningHours
 }
 
@@ -207,7 +215,7 @@ export interface Ticket {
 
 // ── Payment ───────────────────────────────────────────────────────────────────
 
-export type PaymentMethod = 'mobile_money' | 'tmoney' | 'flooz' | 'bank_transfer' | 'cash'
+export type PaymentMethod = 'mobile_money' | 'tmoney' | 'flooz' | 'bank_transfer' | 'cash' | 'simulated'
 
 export interface Payment {
   id: string

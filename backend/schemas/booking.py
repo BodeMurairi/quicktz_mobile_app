@@ -2,6 +2,10 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
+from schemas.trip import TripResponse
+from schemas.payment import PaymentResponse
+from schemas.ticket import TicketResponse
+
 
 class BookingCreate(BaseModel):
     trip_id: str
@@ -21,6 +25,10 @@ class BookingResponse(BaseModel):
     total_price: float
     status: str
     created_at: datetime
+    updated_at: datetime
+    trip: Optional[TripResponse] = None
+    payment: Optional[PaymentResponse] = None
+    ticket: Optional[TicketResponse] = None
 
     model_config = {"from_attributes": True}
 
@@ -31,3 +39,8 @@ class BookingCancelRequest(BaseModel):
 
 class RescheduleRequest(BaseModel):
     new_trip_id: str
+
+
+class TransactionStatusUpdate(BaseModel):
+    agency_id: str
+    status: str  # "cancelled" | "completed"

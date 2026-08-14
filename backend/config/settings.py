@@ -13,7 +13,26 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     GOOGLE_API_KEY: str = ""
 
+    # Cloudflare R2 (S3-compatible object storage) — logos, receipts, invoices, documents
+    R2_ACCOUNT_ID: str = ""
+    R2_ACCESS_KEY_ID: str = ""
+    R2_SECRET_ACCESS_KEY: str = ""
+    R2_BUCKET_NAME: str = ""
+    R2_JURISDICTION: str = ""  # e.g. "eu" for a jurisdiction-restricted bucket, blank for default
+    R2_PUBLIC_URL: str = ""  # e.g. https://pub-xxxx.r2.dev or a custom domain, no trailing slash
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
-settings = Settings()
+def get_settings() -> Settings:
+    """
+    Builds a fresh Settings instance straight from .env on every call — unlike the
+    `settings` singleton below, this picks up newly-added/rotated values (e.g. R2
+    keys) without needing a process restart. Use this for config that's reasonably
+    likely to change while the server is running; use `settings` for things like
+    DATABASE_URL that only make sense fixed at startup.
+    """
+    return Settings()
+
+
+settings = get_settings()

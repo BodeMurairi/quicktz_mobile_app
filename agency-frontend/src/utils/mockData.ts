@@ -15,19 +15,6 @@ export const mockRevenueData: RevenueDataPoint[] = [
   { label: 'Jun', revenue: 6_750_000, commission: 202_500, net: 6_547_500, bookings: 135 },
 ]
 
-// ── Mock transactions ─────────────────────────────────────────────────────────
-
-export const mockTransactions: TransactionRow[] = [
-  { id: 'txn-001', date: '2026-06-04T09:12:00', passenger: 'Kofi Mensah', route: 'Lomé → Kara', amount: 12500, method: 'mobile_money', status: 'completed', booking_id: 'bk-001' },
-  { id: 'txn-002', date: '2026-06-04T08:45:00', passenger: 'Ama Koffi', route: 'Lomé → Sokodé', amount: 9500, method: 'tmoney', status: 'completed', booking_id: 'bk-002' },
-  { id: 'txn-003', date: '2026-06-03T16:22:00', passenger: 'Yao Agbenyo', route: 'Kara → Lomé', amount: 12500, method: 'flooz', status: 'refunded', booking_id: 'bk-003' },
-  { id: 'txn-004', date: '2026-06-03T14:10:00', passenger: 'Akosua Addo', route: 'Lomé → Atakpamé', amount: 6000, method: 'mobile_money', status: 'completed', booking_id: 'bk-004' },
-  { id: 'txn-005', date: '2026-06-03T11:05:00', passenger: 'Komi Djagba', route: 'Lomé → Dapaong', amount: 18000, method: 'bank_transfer', status: 'completed', booking_id: 'bk-005' },
-  { id: 'txn-006', date: '2026-06-02T17:33:00', passenger: 'Efua Asante', route: 'Lomé → Kara', amount: 12500, method: 'tmoney', status: 'completed', booking_id: 'bk-006' },
-  { id: 'txn-007', date: '2026-06-02T09:47:00', passenger: 'Kwame Boateng', route: 'Atakpamé → Lomé', amount: 6000, method: 'mobile_money', status: 'failed', booking_id: 'bk-007' },
-  { id: 'txn-008', date: '2026-06-01T13:20:00', passenger: 'Abena Nyarko', route: 'Lomé → Sokodé', amount: 9500, method: 'flooz', status: 'completed', booking_id: 'bk-008' },
-]
-
 // ── Mock customers ────────────────────────────────────────────────────────────
 
 export const mockCustomers: Customer[] = [
@@ -38,6 +25,58 @@ export const mockCustomers: Customer[] = [
   { id: 'c-005', full_name: 'Komi Djagba', email: null, phone_number: '+228 93 45 67 89', booking_count: 5, total_spent: 90000, last_travel: '2026-06-03', is_premium: false },
   { id: 'c-006', full_name: 'Efua Asante', email: 'efua@mail.tg', phone_number: '+228 94 56 78 90', booking_count: 9, total_spent: 112500, last_travel: '2026-06-02', is_premium: true },
 ]
+
+// ── Mock transactions ─────────────────────────────────────────────────────────
+// Generated per customer so `booking_count` transactions actually exist for each
+// one (amounts sum to `total_spent`) — previously only 1 transaction existed per
+// customer regardless of their booking count.
+
+const TX_ROUTE_POOL = [
+  'Lomé → Kara', 'Lomé → Sokodé', 'Kara → Lomé', 'Lomé → Atakpamé',
+  'Lomé → Dapaong', 'Atakpamé → Lomé', 'Sokodé → Lomé', 'Lomé → Tsévié',
+]
+const TX_METHOD_POOL: TransactionRow['method'][] = ['mobile_money', 'tmoney', 'flooz', 'bank_transfer']
+
+function buildCustomerTransactions(customer: Customer, seed: number): TransactionRow[] {
+  const count = customer.booking_count
+  if (count === 0) return []
+
+  const base = customer.last_travel ? new Date(customer.last_travel) : new Date('2026-06-01T09:00:00')
+  const baseAmount = Math.round(customer.total_spent / count / 500) * 500
+  let runningTotal = 0
+
+  const rows: TransactionRow[] = []
+  for (let i = 0; i < count; i++) {
+    const isLast = i === count - 1
+    const amount = isLast ? customer.total_spent - runningTotal : baseAmount
+    runningTotal += amount
+
+    const date = new Date(base)
+    date.setDate(date.getDate() - i * 6)
+    date.setHours(8 + ((seed + i) % 10), (seed * 7 + i * 13) % 60, 0, 0)
+
+    const status: TransactionRow['status'] =
+      i > 0 && (seed + i) % 9 === 0 ? 'refunded' :
+      i > 0 && (seed + i) % 11 === 0 ? 'failed' :
+      'completed'
+
+    rows.push({
+      id: `txn-${customer.id}-${i + 1}`,
+      date: date.toISOString(),
+      passenger: customer.full_name,
+      route: TX_ROUTE_POOL[(seed + i) % TX_ROUTE_POOL.length],
+      amount,
+      method: TX_METHOD_POOL[(seed + i) % TX_METHOD_POOL.length],
+      status,
+      booking_id: `bk-${customer.id}-${i + 1}`,
+    })
+  }
+  return rows
+}
+
+export const mockTransactions: TransactionRow[] = mockCustomers
+  .flatMap((c, idx) => buildCustomerTransactions(c, idx + 1))
+  .sort((a, b) => b.date.localeCompare(a.date))
 
 // ── Mock reviews ──────────────────────────────────────────────────────────────
 

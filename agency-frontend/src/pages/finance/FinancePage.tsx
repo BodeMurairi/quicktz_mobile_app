@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   DollarSign, TrendingUp, ArrowDownLeft, ArrowRight,
-  Download, BarChart2,
+  Download, BarChart2, Receipt,
 } from 'lucide-react'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -12,12 +12,9 @@ import Header from '../../components/layout/Header'
 import { Card, CardHeader, CardTitle } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import StatCard from '../../components/ui/StatCard'
-import Badge from '../../components/ui/Badge'
 import { mockRevenueData, mockTransactions } from '../../utils/mockData'
-import { formatCurrency, formatDateTime, statusColor, COMMISSION_RATE } from '../../utils/format'
+import { formatCurrency, formatDateTime, COMMISSION_RATE } from '../../utils/format'
 import { exportCsv, exportPdf } from '../../utils/export'
-
-type BadgeColor = 'primary' | 'success' | 'warning' | 'error' | 'secondary' | 'default'
 
 const PERIODS = ['Weekly', 'Monthly', 'Quarterly', 'Yearly'] as const
 type Period = (typeof PERIODS)[number]
@@ -85,6 +82,30 @@ export default function FinancePage() {
           </Button>
         }
       />
+
+      {/* Transaction history — full recap, filters, and actions now live on their own page */}
+      <Card className="mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <Receipt className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h3 className="section-title mb-0.5">Transaction History</h3>
+              <p className="text-sm text-gray-500">
+                {mockTransactions.length} recent transactions · full recap, filters by date/status/method, and cancel/complete actions
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExport} leftIcon={<Download className="w-3.5 h-3.5" />}>CSV</Button>
+            <Button variant="outline" size="sm" onClick={handleExportPdf} leftIcon={<Download className="w-3.5 h-3.5" />}>PDF</Button>
+            <Button size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />} onClick={() => navigate('/transactions')}>
+              View Transactions
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-4 mb-6">
@@ -197,47 +218,6 @@ export default function FinancePage() {
           </div>
         </Card>
       </div>
-
-      {/* Transaction history */}
-      <Card padding={false}>
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="section-title">Transaction History</h3>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleExport} leftIcon={<Download className="w-3.5 h-3.5" />}>CSV</Button>
-            <Button variant="outline" size="sm" onClick={handleExportPdf} leftIcon={<Download className="w-3.5 h-3.5" />}>PDF</Button>
-            <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="w-3.5 h-3.5" />} onClick={() => navigate('/finance/transactions')}>
-              Full history
-            </Button>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-50">
-                {['Date', 'Passenger', 'Route', 'Method', 'Gross', 'Commission', 'Net', 'Status'].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {mockTransactions.map(tx => (
-                <tr key={tx.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                  <td className="px-4 py-3 text-xs text-gray-500">{formatDateTime(tx.date)}</td>
-                  <td className="px-4 py-3 font-medium text-dark">{tx.passenger}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{tx.route}</td>
-                  <td className="px-4 py-3 text-xs text-gray-500 capitalize">{tx.method.replace('_', ' ')}</td>
-                  <td className="px-4 py-3 font-semibold text-dark">{formatCurrency(tx.amount)}</td>
-                  <td className="px-4 py-3 text-error text-xs">−{formatCurrency(Math.round(tx.amount * COMMISSION_RATE))}</td>
-                  <td className="px-4 py-3 font-semibold text-success">{formatCurrency(Math.round(tx.amount * (1 - COMMISSION_RATE)))}</td>
-                  <td className="px-4 py-3">
-                    <Badge label={tx.status} color={statusColor(tx.status) as BadgeColor} dot />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </div>
   )
 }
