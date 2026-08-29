@@ -3,13 +3,11 @@ import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 class ApiEndpoints {
   // Web prod (Docker): Nginx proxies /api/ → backend container — use relative origin.
   // Web dev (flutter run -d chrome): no proxy in front, hit the local backend directly.
-  // Mobile on same WiFi: uses LAN IP directly (avoids carrier DNS blocks on ngrok).
-  // Mobile on different network: switch back to ngrok URL below.
+  // Mobile (debug or release): hits the deployed Render backend directly, so it
+  // works from any device/network without needing a local server running.
   static String get baseUrl => kIsWeb
       ? (kDebugMode ? 'http://localhost:8000/api/v1' : '/api/v1')
-      : kDebugMode
-          ? 'http://192.168.1.77:8000/api/v1'
-          : 'https://quickt.dessartstudio.com/api/v1';
+      : 'https://quicktz-mobile-app.onrender.com/api/v1';
 
   // Auth
   static const String register = '/auth/register';
