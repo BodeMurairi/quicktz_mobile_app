@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/l10n/app_l10n.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/messages/presentation/providers/conversation_provider.dart';
 
 class AppDrawer extends ConsumerWidget {
   const AppDrawer({super.key});
@@ -12,6 +13,8 @@ class AppDrawer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
     final l10n = ref.watch(l10nProvider);
+    final conversations = ref.watch(conversationsProvider).valueOrNull ?? const [];
+    final unreadCount = conversations.fold<int>(0, (s, c) => s + c.unreadCount);
     final firstName = user?.fullName.split(' ').first ?? l10n.guest;
     final email = user?.email ?? user?.phoneNumber ?? '';
 
@@ -81,6 +84,12 @@ class AppDrawer extends ConsumerWidget {
                   label: l10n.askBot,
                   onTap: () => _nav(context, '/chat'),
                   highlighted: true,
+                ),
+                _DrawerItem(
+                  icon: Icons.mail_outline_rounded,
+                  label: l10n.messages,
+                  trailingCount: unreadCount,
+                  onTap: () => _nav(context, '/messages'),
                 ),
                 _DrawerItem(
                   icon: Icons.map_outlined,
@@ -204,6 +213,7 @@ class _DrawerItem extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final String? badge;
+  final int? trailingCount;
   final Color? color;
   final bool highlighted;
 
@@ -212,6 +222,7 @@ class _DrawerItem extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.badge,
+    this.trailingCount,
     this.color,
     this.highlighted = false,
   });
@@ -260,6 +271,23 @@ class _DrawerItem extends StatelessWidget {
                   ),
                   child: Text(
                     badge!,
+                    style: const TextStyle(
+                        color: AppColors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+              if (trailingCount != null && trailingCount! > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  constraints: const BoxConstraints(minWidth: 20),
+                  decoration: BoxDecoration(
+                    color: AppColors.error,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    trailingCount! > 9 ? '9+' : '$trailingCount',
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                         color: AppColors.white,
                         fontSize: 10,

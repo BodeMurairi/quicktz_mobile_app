@@ -60,4 +60,24 @@ class BookingRepository {
     final response = await _dio.get(ApiEndpoints.ticketDetail(id));
     return TicketModel.fromJson(response.data);
   }
+
+  Future<BookingModel> approveBooking(String id, String paymentMethod) async {
+    final response = await _dio.post(
+      ApiEndpoints.approveBooking(id),
+      data: {'payment_method': paymentMethod},
+    );
+    return BookingModel.fromJson(response.data);
+  }
+
+  Future<ReviewModel> submitReview(
+    String bookingId, {
+    required int rating,
+    String? comment,
+  }) async {
+    final body = <String, dynamic>{'rating': rating};
+    if (comment != null && comment.isNotEmpty) body['comment'] = comment;
+    final response =
+        await _dio.post(ApiEndpoints.reviewBooking(bookingId), data: body);
+    return ReviewModel.fromJson(response.data);
+  }
 }

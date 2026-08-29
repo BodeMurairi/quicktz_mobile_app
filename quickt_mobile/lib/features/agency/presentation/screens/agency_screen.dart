@@ -1,12 +1,30 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../features/messages/presentation/providers/conversation_provider.dart';
 import '../../../../features/search/data/models/trip_model.dart';
 import '../../../../features/search/presentation/providers/search_provider.dart';
 import '../../../../shared/widgets/loading_widget.dart' as lw;
+
+Future<void> _messageAgency(
+    BuildContext context, WidgetRef ref, String agencyId) async {
+  try {
+    final conversation = await ref
+        .read(conversationRepositoryProvider)
+        .startConversation(agencyId);
+    ref.invalidate(conversationsProvider);
+    if (context.mounted) context.push('/messages/${conversation.id}');
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Could not start a conversation. Please try again.')),
+      );
+    }
+  }
+}
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -20,75 +38,14 @@ final _agencyRoutesProvider =
   return ref.read(tripRepositoryProvider).getAgencyRoutes(id);
 });
 
-// ── Deterministic mock rating helpers ─────────────────────────────────────────
-
-double _agencyRating(String id) {
-  final code = id.codeUnits.fold(0, (a, b) => a + b);
-  return 3.6 + (code % 14) / 10;
-}
-
-int _agencyReviewCount(String id) {
-  final code = id.codeUnits.fold(0, (a, b) => a + b);
-  return 80 + (code % 420);
-}
-
-List<int> _starBreakdown(String id, int total) {
-  final rng = math.Random(id.hashCode);
-  final pct5 = 0.40 + rng.nextDouble() * 0.25;
-  final pct4 = 0.20 + rng.nextDouble() * 0.15;
-  final pct3 = 0.08 + rng.nextDouble() * 0.08;
-  final pct2 = 0.03 + rng.nextDouble() * 0.04;
-  final c5 = (total * pct5).round();
-  final c4 = (total * pct4).round();
-  final c3 = (total * pct3).round();
-  final c2 = (total * pct2).round();
-  final c1 = math.max(0, total - c5 - c4 - c3 - c2);
-  return [c5, c4, c3, c2, c1];
-}
-
-const _reviewerNames = [
-  'Kofi A.', 'Ama S.', 'Yao K.', 'Abla M.', 'Koffi D.',
-  'Efua T.', 'Kwame B.', 'Afia L.', 'Sena G.', 'Mawuli R.',
-];
-const _comments = [
-  'Very comfortable ride, the bus left on time and arrived early!',
-  'Driver was professional, seats were clean. Will book again.',
-  'The journey was smooth. WiFi worked perfectly the whole way.',
-  'Good service overall. The bus was clean and on schedule.',
-  'Excellent experience! Air conditioning was very refreshing.',
-  'Seats were comfortable, price is fair. Recommended for long trips.',
-  'Reliable agency. I use them every month for my trips to Kara.',
-  'Decent trip. A little late at departure but caught up quickly.',
-  'Nice buses, friendly staff. USB charger in every seat!',
-  'Solid service, no complaints. The meal was a nice surprise.',
-];
-
-List<_Review> _mockReviews(String agencyId, int count) {
-  final seed = agencyId.hashCode;
-  return List.generate(math.min(count, 5), (i) {
-    final rng = math.Random(seed + i * 37);
-    final stars = (3 + rng.nextInt(3)).toDouble();
-    final daysAgo = 3 + rng.nextInt(60);
-    return _Review(
-      reviewer: _reviewerNames[(seed + i * 7) % _reviewerNames.length],
-      stars: stars,
-      comment: _comments[(seed + i * 13) % _comments.length],
-      date: DateTime.now().subtract(Duration(days: daysAgo)),
-    );
-  });
-}
-
-class _Review {
-  final String reviewer;
-  final double stars;
-  final String comment;
-  final DateTime date;
-  const _Review({
-    required this.reviewer,
-    required this.stars,
-    required this.comment,
-    required this.date,
-  });
+// Star histogram (5★ down to 1★) derived from the agency's real reviews.
+List<int> _starBreakdown(List<AgencyReview> reviews) {
+  final counts = List.filled(5, 0);
+  for (final r in reviews) {
+    final star = r.rating.clamp(1, 5);
+    counts[5 - star]++;
+  }
+  return counts;
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -124,10 +81,13 @@ class _AgencyBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final routesAsync = ref.watch(_agencyRoutesProvider(agency.id));
-    final rating = _agencyRating(agency.id);
-    final reviewCount = _agencyReviewCount(agency.id);
-    final breakdown = _starBreakdown(agency.id, reviewCount);
-    final reviews = _mockReviews(agency.id, reviewCount);
+    final ratingSummary =
+        ref.watch(agencyRatingSummaryProvider(agency.id)).valueOrNull;
+    final reviews =
+        ref.watch(agencyReviewsProvider(agency.id)).valueOrNull ?? const [];
+    final rating = ratingSummary?.averageRating ?? 0.0;
+    final reviewCount = ratingSummary?.reviewCount ?? 0;
+    final breakdown = _starBreakdown(reviews);
 
     return DefaultTabController(
       length: 2,
@@ -144,6 +104,14 @@ class _AgencyBody extends ConsumerWidget {
               onPressed: () =>
                   context.canPop() ? context.pop() : context.go('/home'),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.mail_outline_rounded,
+                    color: AppColors.white),
+                tooltip: 'Message this agency',
+                onPressed: () => _messageAgency(context, ref, agency.id),
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration:
@@ -353,7 +321,7 @@ class _ReviewsTab extends StatelessWidget {
   final double rating;
   final int reviewCount;
   final List<int> breakdown;
-  final List<_Review> reviews;
+  final List<AgencyReview> reviews;
 
   const _ReviewsTab({
     required this.rating,
@@ -376,10 +344,14 @@ class _ReviewsTab extends StatelessWidget {
         const SizedBox(height: 20),
         const _SectionTitle('Recent Reviews'),
         const SizedBox(height: 10),
-        ...reviews.map((r) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _ReviewCard(review: r),
-            )),
+        if (reviews.isEmpty)
+          const Text('No reviews yet — be the first to rate a trip with this agency.',
+              style: TextStyle(color: AppColors.grey, fontSize: 13))
+        else
+          ...reviews.map((r) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _ReviewCard(review: r),
+              )),
       ],
     );
   }
@@ -619,7 +591,7 @@ class _RatingBreakdownCard extends StatelessWidget {
 }
 
 class _ReviewCard extends StatelessWidget {
-  final _Review review;
+  final AgencyReview review;
   const _ReviewCard({required this.review});
 
   @override
@@ -635,7 +607,9 @@ class _ReviewCard extends StatelessWidget {
                 backgroundColor:
                     AppColors.primary.withValues(alpha: 0.15),
                 child: Text(
-                  review.reviewer[0],
+                  review.customerName.isNotEmpty
+                      ? review.customerName[0]
+                      : '?',
                   style: const TextStyle(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w700,
@@ -647,13 +621,13 @@ class _ReviewCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(review.reviewer,
+                    Text(review.customerName,
                         style: const TextStyle(
                             color: AppColors.darkPrimary,
                             fontWeight: FontWeight.w600,
                             fontSize: 13)),
                     Text(
-                      DateFormat('d MMM yyyy').format(review.date),
+                      '${DateFormat('d MMM yyyy').format(review.createdAt)} · ${review.tripRoute}',
                       style: const TextStyle(
                           color: AppColors.grey, fontSize: 11),
                     ),
@@ -664,7 +638,7 @@ class _ReviewCard extends StatelessWidget {
                 children: List.generate(
                     5,
                     (i) => Icon(
-                          i < review.stars.floor()
+                          i < review.rating
                               ? Icons.star_rounded
                               : Icons.star_outline_rounded,
                           color: const Color(0xFFF39C12),
@@ -673,10 +647,37 @@ class _ReviewCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(review.comment,
-              style: const TextStyle(
-                  color: AppColors.grey, fontSize: 13, height: 1.5)),
+          if (review.comment != null && review.comment!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(review.comment!,
+                style: const TextStyle(
+                    color: AppColors.grey, fontSize: 13, height: 1.5)),
+          ],
+          if (review.reply != null && review.reply!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Response from the agency',
+                      style: TextStyle(
+                          color: AppColors.darkPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11)),
+                  const SizedBox(height: 4),
+                  Text(review.reply!,
+                      style: const TextStyle(
+                          color: AppColors.grey, fontSize: 12, height: 1.4)),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

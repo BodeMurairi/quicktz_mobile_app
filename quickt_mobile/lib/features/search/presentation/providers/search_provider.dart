@@ -82,3 +82,14 @@ final tripRepositoryProvider = Provider((_) => TripRepository());
 final searchProvider = StateNotifierProvider<SearchNotifier, SearchState>(
   (ref) => SearchNotifier(ref.read(tripRepositoryProvider)),
 );
+
+// Memoized per agency — cards for the same agency across Home/Trip Detail share one fetch.
+final agencyRatingSummaryProvider =
+    FutureProvider.family<AgencyRatingSummary, String>((ref, agencyId) {
+  return ref.read(tripRepositoryProvider).getAgencyRatingSummary(agencyId);
+});
+
+final agencyReviewsProvider =
+    FutureProvider.family<List<AgencyReview>, String>((ref, agencyId) {
+  return ref.read(tripRepositoryProvider).getAgencyReviews(agencyId);
+});

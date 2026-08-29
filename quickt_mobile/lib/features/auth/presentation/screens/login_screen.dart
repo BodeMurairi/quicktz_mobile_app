@@ -142,6 +142,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: () => context.push('/forgot-password'),
+                    child: Text(l10n.forgotPassword,
+                        style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13)),
+                  ),
+                ),
                 if (auth.error != null) ...[
                   const SizedBox(height: 12),
                   Container(

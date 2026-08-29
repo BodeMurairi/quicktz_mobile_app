@@ -17,16 +17,6 @@ final _tripDetailProvider = FutureProvider.family<TripModel, String>((ref, id) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-double _mockRating(String id) {
-  final code = id.codeUnits.fold(0, (a, b) => a + b);
-  return 3.5 + (code % 15) / 10;
-}
-
-int _mockReviews(String id) {
-  final code = id.codeUnits.fold(0, (a, b) => a + b);
-  return 20 + (code % 180);
-}
-
 // Intermediate stops for well-known Togolese corridors (origin → destination).
 // Only the stops between the two endpoints are listed.
 const _intermediateStops = <String, List<String>>{
@@ -243,7 +233,8 @@ class _TripDetailBody extends ConsumerWidget {
                 const SizedBox(height: 12),
 
                 // ── Ratings ──────────────────────────────────────────────
-                _RatingCard(tripId: trip.id),
+                if (trip.route?.agency?.id != null)
+                  _RatingCard(agencyId: trip.route!.agency!.id),
 
                 const SizedBox(height: 12),
 
@@ -744,16 +735,18 @@ class _RequirementsCard extends StatelessWidget {
 
 // ── Rating card ───────────────────────────────────────────────────────────────
 
-class _RatingCard extends StatelessWidget {
-  final String tripId;
-  const _RatingCard({required this.tripId});
+class _RatingCard extends ConsumerWidget {
+  final String agencyId;
+  const _RatingCard({required this.agencyId});
 
   @override
-  Widget build(BuildContext context) {
-    final rating = _mockRating(tripId);
-    final reviews = _mockReviews(tripId);
-    final full = rating.floor();
-    final hasHalf = (rating - full) >= 0.5;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(agencyRatingSummaryProvider(agencyId));
+    final summary = summaryAsync.valueOrNull;
+    final rating = summary?.averageRating;
+    final reviews = summary?.reviewCount ?? 0;
+    final full = (rating ?? 0).floor();
+    final hasHalf = ((rating ?? 0) - full) >= 0.5;
 
     return Container(
       width: double.infinity,
@@ -771,38 +764,42 @@ class _RatingCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   fontSize: 15)),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Text(rating.toStringAsFixed(1),
-                  style: const TextStyle(
-                      color: AppColors.darkPrimary,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 36)),
-              const SizedBox(width: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: List.generate(5, (i) {
-                      if (i < full) {
-                        return const Icon(Icons.star_rounded,
+          if (rating != null)
+            Row(
+              children: [
+                Text(rating.toStringAsFixed(1),
+                    style: const TextStyle(
+                        color: AppColors.darkPrimary,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 36)),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: List.generate(5, (i) {
+                        if (i < full) {
+                          return const Icon(Icons.star_rounded,
+                              color: Color(0xFFF39C12), size: 20);
+                        } else if (i == full && hasHalf) {
+                          return const Icon(Icons.star_half_rounded,
+                              color: Color(0xFFF39C12), size: 20);
+                        }
+                        return const Icon(Icons.star_outline_rounded,
                             color: Color(0xFFF39C12), size: 20);
-                      } else if (i == full && hasHalf) {
-                        return const Icon(Icons.star_half_rounded,
-                            color: Color(0xFFF39C12), size: 20);
-                      }
-                      return const Icon(Icons.star_outline_rounded,
-                          color: Color(0xFFF39C12), size: 20);
-                    }),
-                  ),
-                  const SizedBox(height: 4),
-                  Text('$reviews reviews',
-                      style: const TextStyle(
-                          color: AppColors.grey, fontSize: 12)),
-                ],
-              ),
-            ],
-          ),
+                      }),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('$reviews reviews',
+                        style: const TextStyle(
+                            color: AppColors.grey, fontSize: 12)),
+                  ],
+                ),
+              ],
+            )
+          else
+            const Text('No ratings yet — be the first to review this agency.',
+                style: TextStyle(color: AppColors.grey, fontSize: 13)),
         ],
       ),
     );

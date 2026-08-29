@@ -10,6 +10,8 @@ import 'core/providers/locale_provider.dart';
 import 'features/auth/presentation/screens/splash_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/auth/presentation/screens/register_screen.dart';
+import 'features/auth/presentation/screens/forgot_password_screen.dart';
+import 'features/auth/presentation/screens/reset_password_screen.dart';
 import 'features/home/presentation/screens/home_screen.dart';
 import 'features/search/presentation/screens/search_screen.dart';
 import 'features/search/presentation/screens/search_results_screen.dart';
@@ -26,6 +28,9 @@ import 'features/profile/presentation/screens/profile_screen.dart';
 import 'features/agency/presentation/screens/agency_screen.dart';
 import 'features/trip_planner/presentation/screens/trip_planner_screen.dart';
 import 'features/chat/presentation/screens/chatbot_screen.dart';
+import 'features/messages/presentation/screens/conversations_screen.dart';
+import 'features/messages/presentation/screens/conversation_thread_screen.dart';
+import 'features/messages/presentation/widgets/message_watcher.dart';
 import 'features/settings/presentation/screens/settings_screen.dart';
 import 'shared/widgets/app_drawer.dart';
 
@@ -35,6 +40,15 @@ final _router = GoRouter(
     GoRoute(path: '/', builder: (_, _) => const SplashScreen()),
     GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
     GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
+    GoRoute(
+      path: '/forgot-password',
+      builder: (_, _) => const ForgotPasswordScreen(),
+    ),
+    GoRoute(
+      path: '/reset-password',
+      builder: (_, state) =>
+          ResetPasswordScreen(prefillEmail: state.extra as String?),
+    ),
     GoRoute(path: '/search-results', builder: (_, _) => const SearchResultsScreen()),
     GoRoute(
       path: '/trip/:id',
@@ -78,6 +92,12 @@ final _router = GoRouter(
     GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
     GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
     GoRoute(path: '/chat', builder: (_, _) => const ChatbotScreen()),
+    GoRoute(path: '/messages', builder: (_, _) => const ConversationsScreen()),
+    GoRoute(
+      path: '/messages/:id',
+      builder: (_, state) => ConversationThreadScreen(
+          conversationId: state.pathParameters['id']!),
+    ),
     // Shell with 3-item bottom nav
     ShellRoute(
       builder: (_, state, child) =>
@@ -157,7 +177,10 @@ class QuickTZApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'QuickTZ',
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       routerConfig: _router,
+      builder: (context, child) =>
+          MessageWatcher(child: child ?? const SizedBox.shrink()),
       locale: Locale(lang),
       supportedLocales: const [Locale('fr'), Locale('en')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,

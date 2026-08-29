@@ -104,6 +104,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 
+  Future<void> upgradeToPremium() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final user = await _repo.upgradeToPremium();
+      state = state.copyWith(user: user, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _parseError(e));
+      rethrow;
+    }
+  }
+
   String _parseError(Object e) {
     if (e is DioException) {
       if (e.type == DioExceptionType.connectionError ||

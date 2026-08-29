@@ -11,6 +11,7 @@ import '../../../../features/booking/data/models/booking_model.dart';
 import '../../../../features/booking/presentation/providers/booking_provider.dart';
 import '../../../../features/search/data/models/trip_model.dart';
 import '../../../../features/search/presentation/providers/search_provider.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/loading_widget.dart' as lw;
 
 // ── Data bundle ───────────────────────────────────────────────────────────────
@@ -263,12 +264,12 @@ class TicketDetailScreen extends ConsumerWidget {
 
 // ── Ticket view ───────────────────────────────────────────────────────────────
 
-class _TicketView extends StatelessWidget {
+class _TicketView extends ConsumerWidget {
   final _FullTicketData data;
   const _TicketView({required this.data});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ticket = data.ticket;
     final booking = data.booking;
     final trip = data.trip;
@@ -487,8 +488,224 @@ class _TicketView extends StatelessWidget {
           // ── PDF download button ──────────────────────────────────────────
           _DownloadPdfButton(data: data),
           const SizedBox(height: 8),
+
+          // ── Rate this trip ──────────────────────────────────────────────
+          _ReviewSection(
+            ticketId: ticket.id,
+            booking: booking,
+            trip: trip,
+          ),
         ],
       ),
+    );
+  }
+}
+
+// ── Review section ───────────────────────────────────────────────────────────
+
+class _ReviewSection extends ConsumerWidget {
+  final String ticketId;
+  final BookingModel booking;
+  final TripModel trip;
+  const _ReviewSection({
+    required this.ticketId,
+    required this.booking,
+    required this.trip,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasDeparted = trip.departureDatetime.isBefore(DateTime.now());
+    if (booking.status != 'confirmed' || !hasDeparted) {
+      return const SizedBox.shrink();
+    }
+
+    final review = booking.review;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: review != null
+          ? _SubmittedReview(review: review)
+          : _RateTripForm(
+              onSubmit: (rating, comment) async {
+                await ref.read(bookingRepositoryProvider).submitReview(
+                      booking.id,
+                      rating: rating,
+                      comment: comment,
+                    );
+                ref.invalidate(_fullTicketProvider(ticketId));
+              },
+            ),
+    );
+  }
+}
+
+class _SubmittedReview extends StatelessWidget {
+  final ReviewModel review;
+  const _SubmittedReview({required this.review});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Your review',
+            style: TextStyle(
+                color: AppColors.darkPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 15)),
+        const SizedBox(height: 10),
+        Row(
+          children: List.generate(
+              5,
+              (i) => Icon(
+                    i < review.rating
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    color: const Color(0xFFF39C12),
+                    size: 22,
+                  )),
+        ),
+        if (review.comment != null && review.comment!.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(review.comment!,
+              style: const TextStyle(
+                  color: AppColors.grey, fontSize: 13, height: 1.5)),
+        ],
+        if (review.reply != null && review.reply!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Response from the agency',
+                    style: TextStyle(
+                        color: AppColors.darkPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11)),
+                const SizedBox(height: 4),
+                Text(review.reply!,
+                    style: const TextStyle(
+                        color: AppColors.grey, fontSize: 12, height: 1.4)),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _RateTripForm extends StatefulWidget {
+  final Future<void> Function(int rating, String? comment) onSubmit;
+  const _RateTripForm({required this.onSubmit});
+
+  @override
+  State<_RateTripForm> createState() => _RateTripFormState();
+}
+
+class _RateTripFormState extends State<_RateTripForm> {
+  int _rating = 0;
+  final _commentController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_rating == 0) return;
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit(_rating, _commentController.text.trim());
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Could not submit review. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Rate this trip',
+            style: TextStyle(
+                color: AppColors.darkPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 15)),
+        const SizedBox(height: 10),
+        Row(
+          children: List.generate(5, (i) {
+            final starIndex = i + 1;
+            return GestureDetector(
+              onTap: () => setState(() => _rating = starIndex),
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  starIndex <= _rating
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  color: const Color(0xFFF39C12),
+                  size: 30,
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _commentController,
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: 'Share your experience (optional)',
+            hintStyle: const TextStyle(color: AppColors.grey, fontSize: 13),
+            filled: true,
+            fillColor: AppColors.background,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.all(12),
+          ),
+          style: const TextStyle(fontSize: 13),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: AppButton(
+            label: 'Submit review',
+            isLoading: _submitting,
+            onPressed: _rating == 0 ? null : _submit,
+          ),
+        ),
+      ],
     );
   }
 }

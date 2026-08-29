@@ -8,6 +8,7 @@ import '../../../../core/constants/app_keys.dart';
 import '../../../../core/l10n/app_l10n.dart';
 import '../../../../features/booking/data/models/booking_model.dart';
 import '../../../../features/booking/presentation/providers/booking_provider.dart';
+import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/loading_widget.dart' as lw;
 
 class MyTicketsScreen extends ConsumerStatefulWidget {
@@ -71,13 +72,180 @@ class _MyTicketsScreenState extends ConsumerState<MyTicketsScreen>
       body: state.isLoading
           ? lw.LoadingWidget(
               message: l10n.isFr ? 'Chargement…' : 'Loading tickets...')
-          : TabBarView(
-              controller: _tabController,
+          : Column(
               children: [
-                _TicketsTab(tickets: state.tickets),
-                _PaymentsTab(bookings: state.bookings),
+                _PendingApprovalSection(
+                  bookings:
+                      state.bookings.where((b) => b.isPendingApproval).toList(),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _TicketsTab(tickets: state.tickets),
+                      _PaymentsTab(bookings: state.bookings),
+                    ],
+                  ),
+                ),
               ],
             ),
+    );
+  }
+}
+
+// ── Pending approval (manual bookings awaiting the rider) ──────────────────────
+
+class _PendingApprovalSection extends StatelessWidget {
+  final List<BookingModel> bookings;
+  const _PendingApprovalSection({required this.bookings});
+
+  @override
+  Widget build(BuildContext context) {
+    if (bookings.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Awaiting your approval',
+              style: TextStyle(
+                  color: AppColors.darkPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15)),
+          const SizedBox(height: 8),
+          ...bookings.map((b) => _PendingApprovalCard(booking: b)),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingApprovalCard extends ConsumerStatefulWidget {
+  final BookingModel booking;
+  const _PendingApprovalCard({required this.booking});
+
+  @override
+  ConsumerState<_PendingApprovalCard> createState() =>
+      _PendingApprovalCardState();
+}
+
+class _PendingApprovalCardState extends ConsumerState<_PendingApprovalCard> {
+  bool _approving = false;
+
+  Future<void> _approve() async {
+    final method = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const _PaymentMethodPicker(),
+    );
+    if (method == null || !mounted) return;
+
+    setState(() => _approving = true);
+    final ok = await ref
+        .read(bookingProvider.notifier)
+        .approveBooking(widget.booking.id, method);
+    if (!mounted) return;
+    setState(() => _approving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok
+            ? 'Booking confirmed — your ticket is ready!'
+            : 'Could not confirm the booking. Please try again.'),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final b = widget.booking;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.info_outline_rounded,
+                  color: AppColors.warning, size: 18),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('An agency booked a trip for you',
+                    style: TextStyle(
+                        color: AppColors.darkPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${b.passengerName} · XOF ${NumberFormat('#,###').format(b.totalPrice.toInt())}',
+            style: const TextStyle(color: AppColors.grey, fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: AppButton(
+              label: _approving ? 'Confirming…' : 'Approve & Pay',
+              isLoading: _approving,
+              onPressed: _approving ? null : _approve,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentMethodPicker extends StatelessWidget {
+  const _PaymentMethodPicker();
+
+  static const _methods = [
+    ('mobile_money', 'Mobile Money'),
+    ('tmoney', 'T-Money'),
+    ('flooz', 'Flooz'),
+    ('bank_transfer', 'Bank Transfer'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Choose a payment method',
+                style: TextStyle(
+                    color: AppColors.darkPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16)),
+            const SizedBox(height: 8),
+            ..._methods.map((m) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.payments_outlined,
+                      color: AppColors.primary),
+                  title: Text(m.$2,
+                      style: const TextStyle(
+                          color: AppColors.darkPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14)),
+                  onTap: () => Navigator.of(context).pop(m.$1),
+                )),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -302,15 +470,23 @@ class _PaymentCard extends StatelessWidget {
   final BookingModel booking;
   const _PaymentCard({required this.booking});
 
-  Color get _statusColor =>
-      booking.isConfirmed ? AppColors.success : AppColors.error;
+  Color get _statusColor {
+    if (booking.isConfirmed) return AppColors.success;
+    if (booking.isPendingApproval) return AppColors.warning;
+    return AppColors.error;
+  }
 
-  String get _statusLabel =>
-      booking.isConfirmed ? 'SUCCESS' : 'FAILED';
+  String get _statusLabel {
+    if (booking.isConfirmed) return 'SUCCESS';
+    if (booking.isPendingApproval) return 'PENDING';
+    return 'FAILED';
+  }
 
-  IconData get _statusIcon => booking.isConfirmed
-      ? Icons.check_circle_rounded
-      : Icons.cancel_rounded;
+  IconData get _statusIcon {
+    if (booking.isConfirmed) return Icons.check_circle_rounded;
+    if (booking.isPendingApproval) return Icons.hourglass_top_rounded;
+    return Icons.cancel_rounded;
+  }
 
   @override
   Widget build(BuildContext context) {

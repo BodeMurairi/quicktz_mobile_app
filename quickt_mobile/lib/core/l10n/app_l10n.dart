@@ -23,6 +23,7 @@ class AppL10n {
   // ── Drawer ───────────────────────────────────────────────────────────────────
   String get myProfile => _fr ? 'Mon Profil' : 'My Profile';
   String get askBot => _fr ? 'Demander au Bot QuickTZ' : 'Ask QuickTZ Bot';
+  String get messages => _fr ? 'Messages' : 'Messages';
   String get tripPlanner => _fr ? 'Planificateur de Voyage' : 'Trip Planner';
   String get myTickets => _fr ? 'Mes Billets' : 'My Tickets';
   String get giftCards => _fr ? 'Cartes Cadeaux' : 'Gift Cards';
@@ -58,6 +59,33 @@ class AppL10n {
   String get enterCredentials =>
       _fr ? 'Entrez vos identifiants pour continuer' : 'Enter your credentials to continue';
   String get continueStr => _fr ? 'Continuer' : 'Continue';
+  String get resetYourPassword =>
+      _fr ? 'Réinitialiser votre mot de passe' : 'Reset your password';
+  String get forgotPasswordSubtitle => _fr
+      ? 'Entrez votre email et nous vous enverrons un code de réinitialisation.'
+      : "Enter your email and we'll send you a reset code.";
+  String get sendResetCode =>
+      _fr ? 'Envoyer le code' : 'Send reset code';
+  String get checkYourEmail => _fr ? 'Vérifiez votre email' : 'Check your email';
+  String resetCodeSentMessage(String email) => _fr
+      ? "Si $email est enregistré, nous avons envoyé un code à 6 chiffres. Il expire dans 15 minutes."
+      : "If $email is registered, we've sent a 6-digit code. It expires in 15 minutes.";
+  String get iHaveMyCode => _fr ? "J'ai mon code" : 'I have my code';
+  String get resetCode => _fr ? 'Code de réinitialisation' : 'Reset code';
+  String get newPassword => _fr ? 'Nouveau mot de passe' : 'New password';
+  String get confirmNewPassword =>
+      _fr ? 'Confirmer le nouveau mot de passe' : 'Confirm new password';
+  String get resetPasswordAction =>
+      _fr ? 'Réinitialiser le mot de passe' : 'Reset password';
+  String get passwordResetSuccess =>
+      _fr ? 'Mot de passe réinitialisé' : 'Password reset';
+  String get passwordResetSuccessSubtitle => _fr
+      ? 'Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.'
+      : 'You can now sign in with your new password.';
+  String get backToSignIn =>
+      _fr ? 'Retour à la connexion' : 'Back to sign in';
+  String get passwordsDoNotMatch =>
+      _fr ? 'Les mots de passe ne correspondent pas' : 'Passwords do not match';
 
   // ── Home ─────────────────────────────────────────────────────────────────────
   String get whereAreYouGoing =>

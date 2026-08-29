@@ -106,6 +106,17 @@ class BookingNotifier extends StateNotifier<BookingState> {
     }
   }
 
+  Future<bool> approveBooking(String id, String paymentMethod) async {
+    try {
+      await _repo.approveBooking(id, paymentMethod);
+      await loadBookings(); // refreshes both bookings and tickets — a new ticket now exists
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: 'Could not approve booking: ${e.toString()}');
+      return false;
+    }
+  }
+
   Future<void> cancelBooking(String id) async {
     try {
       final updated = await _repo.cancelBooking(id);

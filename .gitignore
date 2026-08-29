@@ -123,3 +123,4 @@ Thumbs.db
 *.crt
 secrets/
 push.sh
+agency_cred.docx

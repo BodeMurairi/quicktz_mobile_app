@@ -156,3 +156,53 @@ class TripModel {
             : null,
       );
 }
+
+class AgencyReview {
+  final String id;
+  final int rating;
+  final String? comment;
+  final String customerName;
+  final String tripRoute;
+  final String? reply;
+  final DateTime? repliedAt;
+  final DateTime createdAt;
+
+  AgencyReview({
+    required this.id,
+    required this.rating,
+    this.comment,
+    required this.customerName,
+    required this.tripRoute,
+    this.reply,
+    this.repliedAt,
+    required this.createdAt,
+  });
+
+  factory AgencyReview.fromJson(Map<String, dynamic> json) => AgencyReview(
+        id: json['id'],
+        rating: json['rating'],
+        comment: json['comment'],
+        customerName: json['customer_name'],
+        tripRoute: json['trip_route'],
+        reply: json['reply'],
+        repliedAt: json['replied_at'] != null
+            ? DateTime.parse(json['replied_at'])
+            : null,
+        createdAt: DateTime.parse(json['created_at']),
+      );
+}
+
+class AgencyRatingSummary {
+  final double? averageRating;
+  final int reviewCount;
+
+  const AgencyRatingSummary({this.averageRating, required this.reviewCount});
+
+  factory AgencyRatingSummary.fromJson(Map<String, dynamic> json) =>
+      AgencyRatingSummary(
+        averageRating: (json['average_rating'] as num?)?.toDouble(),
+        reviewCount: json['review_count'] ?? 0,
+      );
+
+  static const empty = AgencyRatingSummary(reviewCount: 0);
+}

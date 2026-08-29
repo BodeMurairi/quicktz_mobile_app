@@ -19,6 +19,9 @@ dependencies:
   # HTTP Client
   dio: ^5.7.0
 
+  # File picking (message attachments)
+  file_picker: ^8.1.2
+
   # Navigation
   go_router: ^14.6.3
 

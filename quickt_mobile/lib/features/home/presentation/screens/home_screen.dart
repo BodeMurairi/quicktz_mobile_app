@@ -10,17 +10,6 @@ import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/search/presentation/providers/search_provider.dart';
 import '../../../../shared/widgets/loading_widget.dart' as lw;
 
-// Deterministic mock rating from a trip/route id
-double _mockRating(String id) {
-  final code = id.codeUnits.fold(0, (a, b) => a + b);
-  return 3.5 + (code % 15) / 10;
-}
-
-int _mockReviews(String id) {
-  final code = id.codeUnits.fold(0, (a, b) => a + b);
-  return 20 + (code % 180);
-}
-
 const _announcements = [
   _Announcement(
     icon: Icons.local_offer_rounded,
@@ -303,9 +292,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         departureTime: trip.departureDatetime,
                         agencyName:
                             trip.route?.agency?.name ?? 'Agency',
+                        agencyId: trip.route?.agency?.id,
                         price: trip.price,
-                        rating: _mockRating(trip.id),
-                        reviewCount: _mockReviews(trip.id),
                         hasWifi: trip.hasWifi,
                         hasMeal: trip.hasMeal,
                         onTap: () => context.go('/trip/${trip.id}'),
@@ -459,14 +447,13 @@ class _PlanCard extends StatelessWidget {
 
 // ── Trip chip ─────────────────────────────────────────────────────────────────
 
-class _TripChip extends StatelessWidget {
+class _TripChip extends ConsumerWidget {
   final String origin;
   final String destination;
   final DateTime departureTime;
   final String agencyName;
+  final String? agencyId;
   final double price;
-  final double rating;
-  final int reviewCount;
   final bool hasWifi;
   final bool hasMeal;
   final VoidCallback onTap;
@@ -476,16 +463,19 @@ class _TripChip extends StatelessWidget {
     required this.destination,
     required this.departureTime,
     required this.agencyName,
+    required this.agencyId,
     required this.price,
-    required this.rating,
-    required this.reviewCount,
     required this.hasWifi,
     required this.hasMeal,
     required this.onTap,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ratingAsync = agencyId != null
+        ? ref.watch(agencyRatingSummaryProvider(agencyId!))
+        : null;
+    final summary = ratingAsync?.valueOrNull;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -575,22 +565,29 @@ class _TripChip extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      const Icon(Icons.star_rounded,
-                          color: Color(0xFFF39C12), size: 13),
-                      const SizedBox(width: 3),
-                      Text(rating.toStringAsFixed(1),
-                          style: const TextStyle(
-                              color: AppColors.darkPrimary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 3),
-                      Text('($reviewCount)',
-                          style: const TextStyle(
-                              color: AppColors.grey, fontSize: 10)),
-                    ],
-                  ),
+                  if (summary?.averageRating != null)
+                    Row(
+                      children: [
+                        const Icon(Icons.star_rounded,
+                            color: Color(0xFFF39C12), size: 13),
+                        const SizedBox(width: 3),
+                        Text(summary!.averageRating!.toStringAsFixed(1),
+                            style: const TextStyle(
+                                color: AppColors.darkPrimary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 3),
+                        Text('(${summary.reviewCount})',
+                            style: const TextStyle(
+                                color: AppColors.grey, fontSize: 10)),
+                      ],
+                    )
+                  else
+                    const Text('New',
+                        style: TextStyle(
+                            color: AppColors.grey,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500)),
                   const SizedBox(height: 5),
                   Row(
                     children: [

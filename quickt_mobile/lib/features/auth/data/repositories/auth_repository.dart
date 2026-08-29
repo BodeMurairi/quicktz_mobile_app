@@ -49,5 +49,26 @@ class AuthRepository {
     return UserModel.fromJson(response.data);
   }
 
+  Future<UserModel> upgradeToPremium() async {
+    final response = await _dio.post(ApiEndpoints.upgradePremium);
+    return UserModel.fromJson(response.data);
+  }
+
   Future<void> logout() => SecureStorage.clearTokens();
+
+  Future<void> forgotPassword(String email) async {
+    await _dio.post(ApiEndpoints.forgotPassword, data: {'email': email});
+  }
+
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    await _dio.post(ApiEndpoints.resetPassword, data: {
+      'email': email,
+      'code': code,
+      'new_password': newPassword,
+    });
+  }
 }

@@ -11,7 +11,8 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authProvider).user;
+    final authState = ref.watch(authProvider);
+    final user = authState.user;
     final l10n = ref.watch(l10nProvider);
 
     return Scaffold(
@@ -140,7 +141,27 @@ class ProfileScreen extends ConsumerWidget {
                           AppButton(
                             label: l10n.upgradeToPremium,
                             color: AppColors.white,
-                            onPressed: () {},
+                            isLoading: authState.isLoading,
+                            onPressed: () async {
+                              final messenger = ScaffoldMessenger.of(context);
+                              try {
+                                await ref
+                                    .read(authProvider.notifier)
+                                    .upgradeToPremium();
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Welcome to Premium!')),
+                                );
+                              } catch (_) {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        ref.read(authProvider).error ??
+                                            'Something went wrong. Please try again.'),
+                                  ),
+                                );
+                              }
+                            },
                           ),
                         ],
                       ),

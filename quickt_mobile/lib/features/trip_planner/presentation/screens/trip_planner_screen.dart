@@ -44,10 +44,17 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
   String? _preferredAgencyId;
   int _passengers = 1;
 
-  List<String> get _knownCities => const [
-        'Lomé', 'Kara', 'Atakpamé', 'Sokodé', 'Dapaong',
-        'Tsévié', 'Notsé', 'Bassar',
-      ];
+  List<String> _knownCities(List<TripModel> upcoming) {
+    final cities = <String>{};
+    for (final trip in upcoming) {
+      final route = trip.route;
+      if (route == null) continue;
+      cities.add(route.origin);
+      cities.add(route.destination);
+    }
+    final sorted = cities.toList()..sort();
+    return sorted;
+  }
 
   void _addLeg() {
     if (_legs.length >= 4) return;
@@ -117,6 +124,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
   Widget build(BuildContext context) {
     final searchState = ref.watch(searchProvider);
     final agencies = searchState.agencies;
+    final cities = _knownCities(searchState.upcoming);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -146,7 +154,7 @@ class _TripPlannerScreenState extends ConsumerState<TripPlannerScreen> {
                   ...List.generate(_legs.length, (i) => _LegCard(
                         index: i,
                         leg: _legs[i],
-                        cities: _knownCities,
+                        cities: cities,
                         canRemove: _legs.length > 1,
                         onOriginChanged: (v) =>
                             setState(() => _legs[i] = _legs[i].copyWith(origin: v)),

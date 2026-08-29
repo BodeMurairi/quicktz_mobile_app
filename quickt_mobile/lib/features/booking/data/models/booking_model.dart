@@ -22,6 +22,35 @@ class PassengerInfo {
   });
 }
 
+class ReviewModel {
+  final String id;
+  final int rating;
+  final String? comment;
+  final String? reply;
+  final DateTime? repliedAt;
+  final DateTime createdAt;
+
+  ReviewModel({
+    required this.id,
+    required this.rating,
+    this.comment,
+    this.reply,
+    this.repliedAt,
+    required this.createdAt,
+  });
+
+  factory ReviewModel.fromJson(Map<String, dynamic> json) => ReviewModel(
+        id: json['id'],
+        rating: json['rating'],
+        comment: json['comment'],
+        reply: json['reply'],
+        repliedAt: json['replied_at'] != null
+            ? DateTime.parse(json['replied_at'])
+            : null,
+        createdAt: DateTime.parse(json['created_at']),
+      );
+}
+
 class BookingModel {
   final String id;
   final String userId;
@@ -32,6 +61,7 @@ class BookingModel {
   final double totalPrice;
   final String status;
   final DateTime createdAt;
+  final ReviewModel? review;
 
   BookingModel({
     required this.id,
@@ -43,6 +73,7 @@ class BookingModel {
     required this.totalPrice,
     required this.status,
     required this.createdAt,
+    this.review,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) => BookingModel(
@@ -55,10 +86,14 @@ class BookingModel {
         totalPrice: (json['total_price'] as num).toDouble(),
         status: json['status'],
         createdAt: DateTime.parse(json['created_at']),
+        review: json['review'] != null
+            ? ReviewModel.fromJson(json['review'])
+            : null,
       );
 
   bool get isConfirmed => status == 'confirmed';
   bool get isCancelled => status == 'cancelled';
+  bool get isPendingApproval => status == 'pending_approval';
 }
 
 class TicketModel {
