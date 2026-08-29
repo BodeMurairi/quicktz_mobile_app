@@ -26,7 +26,7 @@ export default function BookingsPage() {
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['bookings', agency?.id],
-    queryFn: () => bookingApi.list({ agency_id: agency?.id }),
+    queryFn: () => bookingApi.list({ agency_id: agency!.id }),
     enabled: !!agency,
   })
 

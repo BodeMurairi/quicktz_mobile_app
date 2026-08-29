@@ -2,6 +2,8 @@ import { apiClient } from './client'
 import type { Trip, TripCreate, TripUpdate } from '../types'
 
 export const tripApi = {
+  // Agency dashboard: every trip for this agency, any status — requires that
+  // agency's own login. Without agency_id, hits the public rider-facing feed.
   list: async (params?: {
     agency_id?: string
     route_id?: string
@@ -9,7 +11,9 @@ export const tripApi = {
     from_date?: string
     to_date?: string
   }): Promise<Trip[]> => {
-    const { data } = await apiClient.get<Trip[]>('/trips', { params })
+    const { agency_id, ...rest } = params ?? {}
+    const url = agency_id ? `/agencies/${agency_id}/trips` : '/trips'
+    const { data } = await apiClient.get<Trip[]>(url, { params: rest })
     return data
   },
 

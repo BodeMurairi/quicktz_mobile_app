@@ -2,19 +2,21 @@ import { apiClient, BASE_URL } from './client'
 import type { Booking, BookingCreate, BookingStatus, ChatMessage } from '../types'
 
 export const bookingApi = {
-  list: async (params?: {
-    agency_id?: string
-    trip_id?: string
+  // Agency dashboard: every booking for this agency (unpaginated). Requires that
+  // agency's own login — see GET /agencies/{agency_id}/bookings.
+  list: async (params: {
+    agency_id: string
     status?: string
     from_date?: string
     to_date?: string
   }): Promise<Booking[]> => {
-    const { data } = await apiClient.get<Booking[]>('/bookings', { params })
+    const { agency_id, ...rest } = params
+    const { data } = await apiClient.get<Booking[]>(`/agencies/${agency_id}/bookings`, { params: rest })
     return data
   },
 
   // Agency dashboard: paginated + filtered transactions, with the total count read
-  // off the X-Total-Count response header (see backend/controller/bookings.py).
+  // off the X-Total-Count response header (see backend/controller/agencies.py).
   listTransactions: async (params: {
     agency_id: string
     status?: string
@@ -25,17 +27,18 @@ export const bookingApi = {
     page?: number
     size?: number
   }): Promise<{ items: Booking[]; total: number }> => {
-    const { data, headers } = await apiClient.get<Booking[]>('/bookings', { params })
+    const { agency_id, ...rest } = params
+    const { data, headers } = await apiClient.get<Booking[]>(`/agencies/${agency_id}/bookings`, { params: rest })
     const total = Number(headers['x-total-count'] ?? data.length)
     return { items: data, total }
   },
 
   updateTransactionStatus: async (
     id: string,
-    agencyId: string,
+    _agencyId: string,
     status: Extract<BookingStatus, 'cancelled' | 'completed'>
   ): Promise<Booking> => {
-    const { data } = await apiClient.patch<Booking>(`/bookings/${id}/status`, { agency_id: agencyId, status })
+    const { data } = await apiClient.patch<Booking>(`/bookings/${id}/status`, { status })
     return data
   },
 
@@ -55,16 +58,6 @@ export const bookingApi = {
   // accountless walk-in and comes back instant-confirmed, same as before.
   createManual: async (agencyId: string, payload: BookingCreate): Promise<Booking> => {
     const { data } = await apiClient.post<Booking>('/bookings/manual', { agency_id: agencyId, ...payload })
-    return data
-  },
-
-  cancel: async (id: string): Promise<Booking> => {
-    const { data } = await apiClient.patch<Booking>(`/bookings/${id}/cancel`)
-    return data
-  },
-
-  confirm: async (id: string): Promise<Booking> => {
-    const { data } = await apiClient.patch<Booking>(`/bookings/${id}/confirm`)
     return data
   },
 

@@ -36,12 +36,12 @@ export default function BookingDetailPage() {
   })
 
   const cancelMutation = useMutation({
-    mutationFn: () => bookingApi.cancel(id!),
+    mutationFn: () => bookingApi.updateTransactionStatus(id!, agency!.id, 'cancelled'),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['booking', id] }),
   })
 
   const confirmMutation = useMutation({
-    mutationFn: () => bookingApi.confirm(id!),
+    mutationFn: () => bookingApi.updateTransactionStatus(id!, agency!.id, 'completed'),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['booking', id] }),
   })
 
