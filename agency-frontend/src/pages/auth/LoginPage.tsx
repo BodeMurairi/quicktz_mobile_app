@@ -53,10 +53,10 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-dark mb-1.5">
-                Email or phone
+                Email
               </label>
               <input
-                type="text"
+                type="email"
                 value={identifier}
                 onChange={e => setIdentifier(e.target.value)}
                 placeholder="you@agency.com"
@@ -66,7 +66,12 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-dark mb-1.5">Password</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-dark">Password</label>
+                <Link to="/forgot-password" className="text-xs text-primary font-medium hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   type={showPw ? 'text' : 'password'}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   DollarSign, TrendingUp, ArrowDownLeft, ArrowRight,
   Download, BarChart2, Receipt,
@@ -12,45 +13,57 @@ import Header from '../../components/layout/Header'
 import { Card, CardHeader, CardTitle } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import StatCard from '../../components/ui/StatCard'
-import { mockRevenueData, mockTransactions } from '../../utils/mockData'
-import { formatCurrency, formatDateTime, COMMISSION_RATE } from '../../utils/format'
+import { formatCurrency, formatDateTime } from '../../utils/format'
 import { exportCsv, exportPdf } from '../../utils/export'
+import { analyticsApi } from '../../api/analytics'
+import { bookingApi } from '../../api/bookings'
+import { useAuth } from '../../contexts/AuthContext'
 
 const PERIODS = ['Weekly', 'Monthly', 'Quarterly', 'Yearly'] as const
 type Period = (typeof PERIODS)[number]
 
-const PIE_COLORS = ['#2E5E99', '#27AE60', '#F39C12', '#7BA4D0']
+const PIE_COLORS = ['#2E5E99', '#27AE60', '#F39C12', '#7BA4D0', '#9B59B6']
 
-const paymentBreakdown = [
-  { name: 'Mobile Money', value: 45 },
-  { name: 'T-Money', value: 28 },
-  { name: 'Flooz', value: 18 },
-  { name: 'Bank Transfer', value: 9 },
-]
+const METHOD_LABELS: Record<string, string> = {
+  mobile_money: 'Mobile Money',
+  tmoney: 'T-Money',
+  flooz: 'Flooz',
+  bank_transfer: 'Bank Transfer',
+  cash: 'Cash',
+  simulated: 'Simulated',
+  unknown: 'Unknown',
+}
 
 export default function FinancePage() {
   const navigate = useNavigate()
+  const { agency } = useAuth()
   const [period, setPeriod] = useState<Period>('Monthly')
 
-  const totalRevenue = mockRevenueData.reduce((s, d) => s + d.revenue, 0)
-  const totalNet     = mockRevenueData.reduce((s, d) => s + d.net, 0)
-  const totalComm    = mockRevenueData.reduce((s, d) => s + d.commission, 0)
-  const totalBookings = mockRevenueData.reduce((s, d) => s + d.bookings, 0)
+  const { data: finance, isLoading: financeLoading } = useQuery({
+    queryKey: ['finance-summary', agency?.id, period],
+    queryFn: () => analyticsApi.finance(agency!.id, period.toLowerCase() as 'weekly' | 'monthly' | 'quarterly' | 'yearly'),
+    enabled: !!agency,
+  })
 
-  const refunds = mockTransactions.filter(t => t.status === 'refunded')
-  const refundTotal = refunds.reduce((s, t) => s + t.amount, 0)
+  // Capped at 100 (the API's page-size limit) — same cap used everywhere else in
+  // this app. Good enough for a CSV/PDF snapshot; the Transactions page is the
+  // source of truth for the complete, paginated history.
+  const { data: exportRows = [] } = useQuery({
+    queryKey: ['finance-export-rows', agency?.id],
+    queryFn: () => bookingApi.listTransactions({ agency_id: agency!.id, page: 1, size: 100 }).then(r => r.items),
+    enabled: !!agency,
+  })
 
   function handleExport() {
     exportCsv(
-      mockTransactions.map(t => ({
-        Date: formatDateTime(t.date),
-        Passenger: t.passenger,
-        Route: t.route,
-        'Amount (XOF)': t.amount,
-        'Net (XOF)': Math.round(t.amount * (1 - COMMISSION_RATE)),
-        Method: t.method,
-        Status: t.status,
-        'Booking ID': t.booking_id,
+      exportRows.map(t => ({
+        Date: formatDateTime(t.created_at),
+        Passenger: t.passenger_name,
+        Route: t.trip?.route ? `${t.trip.route.origin} → ${t.trip.route.destination}` : '—',
+        'Amount (XOF)': t.total_price,
+        Method: t.payment?.payment_method ?? '—',
+        Status: t.payment?.status ?? t.status,
+        'Booking ID': t.id,
       })),
       'transactions'
     )
@@ -60,16 +73,19 @@ export default function FinancePage() {
     exportPdf(
       'Transaction History',
       ['Date', 'Passenger', 'Route', 'Amount', 'Status'],
-      mockTransactions.map(t => [
-        formatDateTime(t.date),
-        t.passenger,
-        t.route,
-        formatCurrency(t.amount),
-        t.status,
+      exportRows.map(t => [
+        formatDateTime(t.created_at),
+        t.passenger_name,
+        t.trip?.route ? `${t.trip.route.origin} → ${t.trip.route.destination}` : '—',
+        formatCurrency(t.total_price),
+        t.payment?.status ?? t.status,
       ]),
       'transactions'
     )
   }
+
+  const f = finance
+  const feePct = f ? (f.platform_fee_rate * 100).toFixed(0) : '3'
 
   return (
     <div>
@@ -93,7 +109,7 @@ export default function FinancePage() {
             <div>
               <h3 className="section-title mb-0.5">Transaction History</h3>
               <p className="text-sm text-gray-500">
-                {mockTransactions.length} recent transactions · full recap, filters by date/status/method, and cancel/complete actions
+                {f?.total_bookings ?? 0} transactions · full recap, filters by date/status/method, and cancel/complete actions
               </p>
             </div>
           </div>
@@ -109,10 +125,10 @@ export default function FinancePage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <StatCard label="Gross revenue (7 months)" value={formatCurrency(totalRevenue)} icon={DollarSign} trend={8.2} color="success" />
-        <StatCard label="Net revenue (after 3% fee)" value={formatCurrency(totalNet)} icon={TrendingUp} trend={8.2} color="primary" />
-        <StatCard label="Platform commission paid" value={formatCurrency(totalComm)} icon={BarChart2} color="warning" />
-        <StatCard label="Total refunds issued" value={formatCurrency(refundTotal)} icon={ArrowDownLeft} color="error" />
+        <StatCard label="Gross revenue" value={financeLoading ? '…' : formatCurrency(f?.gross_revenue ?? 0)} icon={DollarSign} color="success" />
+        <StatCard label={`Net revenue (after ${feePct}% fee)`} value={financeLoading ? '…' : formatCurrency(f?.net_revenue ?? 0)} icon={TrendingUp} color="primary" />
+        <StatCard label="Platform commission paid" value={financeLoading ? '…' : formatCurrency(f?.commission_paid ?? 0)} icon={BarChart2} color="warning" />
+        <StatCard label="Total refunds issued" value={financeLoading ? '…' : formatCurrency(f?.total_refunds ?? 0)} icon={ArrowDownLeft} color="error" />
       </div>
 
       {/* Revenue bar chart */}
@@ -135,7 +151,7 @@ export default function FinancePage() {
             </div>
           </CardHeader>
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={mockRevenueData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+            <BarChart data={f?.revenue_trend ?? []} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} tickFormatter={v => `${(v / 1_000_000).toFixed(1)}M`} />
@@ -155,24 +171,32 @@ export default function FinancePage() {
           <CardHeader>
             <CardTitle>Payment Methods</CardTitle>
           </CardHeader>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={paymentBreakdown} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={3}>
-                {paymentBreakdown.map((_, i) => (
-                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+          {!f || f.payment_methods.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-10">No transactions yet.</p>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={f.payment_methods} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="pct" paddingAngle={3}>
+                    {f.payment_methods.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => [`${v}%`, 'Share']} contentStyle={{ borderRadius: 10, fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {f.payment_methods.map((p, i) => (
+                  <div key={p.method} className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                    <span className="text-xs text-gray-500">
+                      {METHOD_LABELS[p.method] ?? p.method}: <strong>{p.pct}%</strong>
+                    </span>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip formatter={(v) => [`${v}%`, 'Share']} contentStyle={{ borderRadius: 10, fontSize: 11 }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            {paymentBreakdown.map((p, i) => (
-              <div key={p.name} className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i] }} />
-                <span className="text-xs text-gray-500">{p.name}: <strong>{p.value}%</strong></span>
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </Card>
       </div>
 
@@ -181,10 +205,10 @@ export default function FinancePage() {
         <Card className="col-span-2">
           <CardHeader>
             <CardTitle>Booking Volume</CardTitle>
-            <span className="text-xs text-gray-400">{totalBookings} total in period</span>
+            <span className="text-xs text-gray-400">{f?.total_bookings ?? 0} total in period</span>
           </CardHeader>
           <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={mockRevenueData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+            <LineChart data={f?.revenue_trend ?? []} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9ca3af' }} />
               <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
@@ -201,20 +225,16 @@ export default function FinancePage() {
           </CardHeader>
           <div className="space-y-3 text-sm">
             {[
-              { label: 'Avg revenue / trip', value: formatCurrency(Math.round(totalRevenue / totalBookings)) },
-              { label: 'Platform fee rate', value: `${(COMMISSION_RATE * 100).toFixed(0)}%` },
-              { label: 'Commission this period', value: formatCurrency(totalComm) },
-              { label: 'Net margin', value: `${((totalNet / totalRevenue) * 100).toFixed(1)}%` },
+              { label: 'Avg revenue / trip', value: formatCurrency(Math.round(f?.avg_revenue_per_trip ?? 0)) },
+              { label: 'Platform fee rate', value: `${feePct}%` },
+              { label: 'Commission this period', value: formatCurrency(f?.commission_paid ?? 0) },
+              { label: 'Net margin', value: `${(f?.net_margin_pct ?? 0).toFixed(1)}%` },
             ].map(item => (
               <div key={item.label} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
                 <span className="text-gray-500">{item.label}</span>
                 <span className="font-semibold text-dark">{item.value}</span>
               </div>
             ))}
-            <div className="mt-2 px-3 py-2.5 rounded-xl bg-green-50 text-success text-xs font-medium flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              Revenue trending +8.2% vs previous period
-            </div>
           </div>
         </Card>
       </div>

@@ -1,93 +1,73 @@
-import { createContext, useContext, useState } from 'react'
-import { mockConversations } from '../utils/mockData'
-import type { Conversation, Customer } from '../types'
+import { createContext, useContext, useEffect, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { conversationApi } from '../api/conversations'
+import { useAuth } from './AuthContext'
+import { useToast } from './ToastContext'
+import type { Conversation, ChatMessage } from '../types'
 
-// Shared across CustomersPage (quick-message entry points) and MessagesPage (the
-// full inbox) so a conversation started from either place stays in sync.
-
-const AUTO_REPLIES = [
-  'Thanks for the update!',
-  'Got it, appreciate the quick response.',
-  'Perfect, thank you.',
-  'Okay, noted — thanks!',
-  'Great, see you then!',
-]
-
-function conversationIdFor(customerId: string): string {
-  return `conv-${customerId}`
-}
+// Shared across CustomersPage and MessagesPage, polling the real backend so a
+// conversation started from the mobile app shows up here without a manual refresh.
 
 interface ConversationsContextValue {
   conversations: Conversation[]
-  typingIds: Set<string>
-  ensureConversation: (customer: Customer) => string
-  sendMessage: (conversationId: string, text: string) => void
+  isLoading: boolean
+  getMessages: (conversationId: string) => Promise<ChatMessage[]>
+  sendMessage: (
+    conversationId: string,
+    text: string,
+    attachment?: { url: string; name: string; type: string }
+  ) => Promise<void>
 }
 
 const ConversationsContext = createContext<ConversationsContextValue | null>(null)
 
 export function ConversationsProvider({ children }: { children: React.ReactNode }) {
-  const [conversations, setConversations] = useState<Conversation[]>(mockConversations)
-  const [typingIds, setTypingIds] = useState<Set<string>>(new Set())
+  const { agency } = useAuth()
+  const toast = useToast()
+  const qc = useQueryClient()
+  const lastUnreadTotal = useRef<number | null>(null)
 
-  // Creates the conversation for this customer if it doesn't exist yet, and returns its id.
-  function ensureConversation(customer: Customer): string {
-    const id = conversationIdFor(customer.id)
-    setConversations(prev =>
-      prev.some(c => c.id === id)
-        ? prev
-        : [
-            ...prev,
-            {
-              id,
-              customer_id: customer.id,
-              customer_name: customer.full_name,
-              customer_email: customer.email,
-              customer_phone: customer.phone_number,
-              messages: [],
-            },
-          ]
-    )
-    return id
+  const { data: conversations = [], isLoading } = useQuery({
+    queryKey: ['conversations', agency?.id],
+    queryFn: () => conversationApi.listByAgency(agency!.id),
+    enabled: !!agency,
+    refetchInterval: 10_000,
+  })
+
+  // Popup a toast whenever total unread messages across all conversations increases —
+  // fires app-wide since this provider wraps the whole router, not just the Messages page.
+  useEffect(() => {
+    if (!agency) return
+    const total = conversations.reduce((s, c) => s + c.unread_count, 0)
+    if (lastUnreadTotal.current !== null && total > lastUnreadTotal.current) {
+      const withNew = [...conversations].sort(
+        (a, b) => (b.last_message?.created_at ?? '').localeCompare(a.last_message?.created_at ?? '')
+      )[0]
+      toast.success(
+        withNew ? `New message from ${withNew.customer_name}` : 'You have a new message'
+      )
+    }
+    lastUnreadTotal.current = total
+  }, [conversations, agency, toast])
+
+  async function getMessages(conversationId: string): Promise<ChatMessage[]> {
+    const messages = await conversationApi.getMessages(agency!.id, conversationId)
+    qc.invalidateQueries({ queryKey: ['conversations', agency?.id] })
+    return messages
   }
 
-  function sendMessage(conversationId: string, text: string) {
-    if (!text.trim()) return
-    const message = { id: `m-${Date.now()}`, sender: 'agency' as const, text: text.trim(), created_at: new Date().toISOString() }
-    setConversations(prev =>
-      prev.map(c => (c.id === conversationId ? { ...c, messages: [...c.messages, message] } : c))
-    )
-    // Simulate the customer replying, so the thread demonstrates two-way messaging.
-    setTypingIds(prev => new Set(prev).add(conversationId))
-    setTimeout(() => {
-      setConversations(prev =>
-        prev.map(c =>
-          c.id === conversationId
-            ? {
-                ...c,
-                messages: [
-                  ...c.messages,
-                  {
-                    id: `m-${Date.now()}-r`,
-                    sender: 'customer',
-                    text: AUTO_REPLIES[Math.floor(Math.random() * AUTO_REPLIES.length)],
-                    created_at: new Date().toISOString(),
-                  },
-                ],
-              }
-            : c
-        )
-      )
-      setTypingIds(prev => {
-        const next = new Set(prev)
-        next.delete(conversationId)
-        return next
-      })
-    }, 1500)
+  async function sendMessage(
+    conversationId: string,
+    text: string,
+    attachment?: { url: string; name: string; type: string }
+  ) {
+    if (!text.trim() && !attachment) return
+    await conversationApi.sendMessage(agency!.id, conversationId, text.trim(), attachment)
+    qc.invalidateQueries({ queryKey: ['conversations', agency?.id] })
   }
 
   return (
-    <ConversationsContext.Provider value={{ conversations, typingIds, ensureConversation, sendMessage }}>
+    <ConversationsContext.Provider value={{ conversations, isLoading, getMessages, sendMessage }}>
       {children}
     </ConversationsContext.Provider>
   )

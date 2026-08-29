@@ -1,23 +1,8 @@
-// ── Auth ──────────────────────────────────────────────────────────────────────
+// ── Auth (agency accounts — separate account type from rider Users) ────────────
 
-export interface LoginRequest {
-  identifier: string
+export interface AgencyLoginRequest {
+  login_email: string
   password: string
-}
-
-export interface RegisterRequest {
-  full_name: string
-  email: string
-  phone_number?: string
-  password: string
-}
-
-export interface AuthUser {
-  id: string
-  email: string | null
-  phone_number: string | null
-  full_name: string
-  is_premium: boolean
 }
 
 export interface AuthResponse {
@@ -66,6 +51,9 @@ export interface Agency {
   is_active: boolean
   created_at: string
   routes?: Route[]
+  // Only present on the authenticated agency's own view of itself (/agency-auth/me) —
+  // never sent on public agency reads.
+  login_email?: string
 }
 
 export interface AgencyCreate {
@@ -79,6 +67,11 @@ export interface AgencyCreate {
   locations?: AgencyLocation[]
   contacts?: AgencyContact[]
   opening_hours?: AgencyOpeningHours
+}
+
+export interface AgencyRegisterRequest extends AgencyCreate {
+  login_email: string
+  password: string
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -176,7 +169,7 @@ export interface TripUpdate {
 
 // ── Booking ───────────────────────────────────────────────────────────────────
 
-export type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
+export type BookingStatus = 'pending' | 'pending_approval' | 'confirmed' | 'cancelled' | 'completed'
 
 export interface Booking {
   id: string
@@ -231,6 +224,7 @@ export interface Payment {
 
 export interface Customer {
   id: string
+  user_id: string | null
   full_name: string
   email: string | null
   phone_number: string | null
@@ -244,30 +238,40 @@ export interface Customer {
 
 export interface Review {
   id: string
+  booking_id: string
+  agency_id: string
+  user_id: string
   customer_name: string
   rating: number
-  comment: string
+  comment: string | null
   trip_route: string
   created_at: string
-  reply?: string
+  reply?: string | null
+  replied_at?: string | null
 }
 
 // ── Messaging ─────────────────────────────────────────────────────────────────
 
 export interface ChatMessage {
   id: string
-  sender: 'agency' | 'customer'
+  conversation_id: string
+  sender: 'agency' | 'user'
   text: string
+  is_read: boolean
+  attachment_url?: string | null
+  attachment_name?: string | null
+  attachment_type?: string | null
   created_at: string
 }
 
 export interface Conversation {
   id: string
-  customer_id: string
+  user_id: string
+  agency_id: string
   customer_name: string
-  customer_email: string | null
-  customer_phone: string | null
-  messages: ChatMessage[]
+  created_at: string
+  last_message: ChatMessage | null
+  unread_count: number
 }
 
 // ── Promotion ─────────────────────────────────────────────────────────────────
@@ -298,7 +302,7 @@ export interface Announcement {
 
 // ── Notifications (agency dashboard) ────────────────────────────────────────────
 
-export type AgencyNotificationType = 'booking' | 'review' | 'payment' | 'system'
+export type AgencyNotificationType = 'booking' | 'review' | 'payment' | 'system' | 'message'
 
 export interface AgencyNotification {
   id: string
@@ -318,6 +322,44 @@ export interface RevenueDataPoint {
   commission: number
   net: number
   bookings: number
+}
+
+export interface PaymentMethodShare {
+  method: string
+  count: number
+  pct: number
+}
+
+export interface DashboardStats {
+  revenue_this_month: number
+  revenue_trend_pct: number | null
+  bookings_this_month: number
+  bookings_trend_pct: number | null
+  active_trips_today: number
+  average_rating: number | null
+  review_count: number
+  cancelled_this_month: number
+  active_customers: number
+  net_revenue_this_month: number
+  platform_fee_rate: number
+  revenue_trend: RevenueDataPoint[]
+  departures_scheduled_today: number
+  checkins_pending_today: number
+  new_bookings_today: number
+  cancelled_today: number
+}
+
+export interface FinanceSummary {
+  gross_revenue: number
+  net_revenue: number
+  commission_paid: number
+  total_refunds: number
+  total_bookings: number
+  avg_revenue_per_trip: number
+  platform_fee_rate: number
+  net_margin_pct: number
+  payment_methods: PaymentMethodShare[]
+  revenue_trend: RevenueDataPoint[]
 }
 
 export interface TransactionRow {

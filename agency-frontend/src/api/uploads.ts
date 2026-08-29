@@ -1,6 +1,6 @@
 import { apiClient } from './client'
 
-export type UploadFolder = 'logos' | 'gallery' | 'receipts' | 'invoices' | 'documents'
+export type UploadFolder = 'logos' | 'gallery' | 'receipts' | 'invoices' | 'documents' | 'attachments'
 
 export const uploadApi = {
   upload: async (file: File, folder: UploadFolder): Promise<{ url: string }> => {

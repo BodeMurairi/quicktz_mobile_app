@@ -11,13 +11,15 @@ import Button from '../../components/ui/Button'
 import { FormField, Input, Select } from '../../components/ui/FormField'
 import { tripApi } from '../../api/trips'
 import { bookingApi } from '../../api/bookings'
+import { analyticsApi } from '../../api/analytics'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatCurrency, formatDateTime } from '../../utils/format'
+import type { Booking } from '../../types'
 
 const schema = z.object({
   trip_id: z.string().min(1, 'Please select a trip'),
   passenger_name: z.string().min(2, 'Name must be at least 2 characters'),
-  passenger_phone: z.string().optional(),
+  passenger_phone: z.string().min(6, 'A phone number is needed to match (or create) the rider’s account'),
   seat_number: z.coerce.number().int().min(1).optional(),
   payment_method: z.enum(['mobile_money', 'tmoney', 'flooz', 'bank_transfer', 'cash']),
 })
@@ -28,13 +30,20 @@ export default function ManualBookingPage() {
   const { agency } = useAuth()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [success, setSuccess] = useState<string | null>(null)
+  const [success, setSuccess] = useState<Booking | null>(null)
 
   const { data: trips = [] } = useQuery({
     queryKey: ['trips', agency?.id],
     queryFn: () => tripApi.list({ agency_id: agency?.id, status: 'scheduled' }),
     enabled: !!agency,
   })
+
+  const { data: stats } = useQuery({
+    queryKey: ['dashboard-stats', agency?.id],
+    queryFn: () => analyticsApi.dashboard(agency!.id),
+    enabled: !!agency,
+  })
+  const feeRate = stats?.platform_fee_rate ?? 0.03
 
   const {
     register,
@@ -50,10 +59,10 @@ export default function ManualBookingPage() {
   const selectedTrip = trips.find(t => t.id === watch('trip_id'))
 
   const mutation = useMutation({
-    mutationFn: bookingApi.create,
+    mutationFn: (data: FormData) => bookingApi.createManual(agency!.id, data),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['bookings'] })
-      setSuccess(data.id)
+      setSuccess(data)
       reset()
     },
   })
@@ -63,14 +72,21 @@ export default function ManualBookingPage() {
   }
 
   if (success) {
+    const pending = success.status === 'pending_approval'
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-          <CheckCircle className="w-9 h-9 text-success" />
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${pending ? 'bg-amber-100' : 'bg-green-100'}`}>
+          <CheckCircle className={`w-9 h-9 ${pending ? 'text-warning' : 'text-success'}`} />
         </div>
-        <h2 className="text-xl font-bold text-dark mb-2">Booking Confirmed!</h2>
-        <p className="text-gray-500 text-sm mb-1">Booking ID: <span className="font-mono font-semibold">{success.slice(0, 12).toUpperCase()}</span></p>
-        <p className="text-gray-400 text-xs mb-6">Ticket has been generated and saved.</p>
+        <h2 className="text-xl font-bold text-dark mb-2">
+          {pending ? 'Booking Sent — Awaiting Rider Approval' : 'Booking Confirmed!'}
+        </h2>
+        <p className="text-gray-500 text-sm mb-1">Booking ID: <span className="font-mono font-semibold">{success.id.slice(0, 12).toUpperCase()}</span></p>
+        <p className="text-gray-400 text-xs mb-6 max-w-sm text-center">
+          {pending
+            ? 'This phone number matched a QuickTZ account. The rider was notified in-app and must approve and pay before a ticket is issued.'
+            : 'Ticket has been generated and saved.'}
+        </p>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => navigate('/bookings')}>
             View all bookings
@@ -114,13 +130,17 @@ export default function ManualBookingPage() {
                   <FormField label="Full name" required error={errors.passenger_name?.message}>
                     <Input {...register('passenger_name')} placeholder="Kofi Mensah" error={!!errors.passenger_name} />
                   </FormField>
-                  <FormField label="Phone number" error={errors.passenger_phone?.message}>
-                    <Input {...register('passenger_phone')} placeholder="+228 90 00 00 00" />
+                  <FormField label="Phone number" required error={errors.passenger_phone?.message}>
+                    <Input {...register('passenger_phone')} placeholder="+228 90 00 00 00" error={!!errors.passenger_phone} />
                   </FormField>
                 </div>
                 <FormField label="Seat number (optional)" className="mt-4" error={errors.seat_number?.message}>
                   <Input {...register('seat_number')} type="number" placeholder="e.g. 14" className="max-w-[120px]" />
                 </FormField>
+                <p className="text-xs text-gray-400 mt-3">
+                  If this phone number matches a QuickTZ account, the booking will wait for the rider to
+                  approve and pay in the app. Otherwise it's confirmed immediately as a walk-in.
+                </p>
               </div>
 
               {/* Payment */}
@@ -174,8 +194,8 @@ export default function ManualBookingPage() {
                     <span className="text-primary text-base">{formatCurrency(selectedTrip.price)}</span>
                   </div>
                   <p className="text-xs text-gray-400 mt-1">
-                    Net to agency: {formatCurrency(selectedTrip.price * 0.97)}
-                    <span className="ml-1 text-gray-300">(after 3% platform fee)</span>
+                    Net to agency: {formatCurrency(selectedTrip.price * (1 - feeRate))}
+                    <span className="ml-1 text-gray-300">(after {(feeRate * 100).toFixed(0)}% platform fee)</span>
                   </p>
                 </div>
                 {/* Amenities */}

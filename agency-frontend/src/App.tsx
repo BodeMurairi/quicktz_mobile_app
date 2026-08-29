@@ -12,8 +12,9 @@ import DashboardLayout from './components/layout/DashboardLayout'
 
 // Auth pages
 import LoginPage from './pages/auth/LoginPage'
-import AgencySelectPage from './pages/auth/AgencySelectPage'
 import RegisterPage from './pages/auth/RegisterPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 
 // Feature pages
 import DashboardPage from './pages/DashboardPage'
@@ -51,7 +52,8 @@ export default function App() {
             {/* Public */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/select-agency" element={<AgencySelectPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             {/* Protected */}
             <Route element={<DashboardLayout />}>

@@ -2,9 +2,11 @@ import { Navigate, Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import { useAuth } from '../../contexts/AuthContext'
 import { ErrorBoundary } from '../ErrorBoundary'
+import { useNewBookingWatcher } from '../../hooks/useNewBookingWatcher'
 
 export default function DashboardLayout() {
-  const { user, isLoading } = useAuth()
+  const { agency, isLoading } = useAuth()
+  useNewBookingWatcher()
 
   if (isLoading) {
     return (
@@ -14,7 +16,7 @@ export default function DashboardLayout() {
     )
   }
 
-  if (!user) return <Navigate to="/login" replace />
+  if (!agency) return <Navigate to="/login" replace />
 
   return (
     <div className="flex min-h-screen">

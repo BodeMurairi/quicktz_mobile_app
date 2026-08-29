@@ -82,7 +82,7 @@ function formatHours(h?: { open?: string | null; close?: string | null; closed: 
 }
 
 export default function ProfilePage() {
-  const { agency, selectAgency } = useAuth()
+  const { agency, updateAgency: syncAgency } = useAuth()
   const toast = useToast()
   const [editing, setEditing] = useState(false)
   const [logoUploading, setLogoUploading] = useState(false)
@@ -138,7 +138,7 @@ export default function ProfilePage() {
   const updateAgency = useMutation({
     mutationFn: (payload: Partial<AgencyCreate>) => agencyApi.update(agency!.id, payload),
     onSuccess: (updated) => {
-      selectAgency(updated)
+      syncAgency(updated)
       setEditing(false)
       toast.success('Profile updated.')
     },

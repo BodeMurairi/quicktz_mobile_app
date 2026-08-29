@@ -1,10 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Bus, LayoutDashboard, Ticket, DollarSign, Calendar, Route as RouteIcon,
-  Users, Megaphone, Settings, LogOut, ChevronRight, Building2, Receipt, MessageCircle,
+  Users, Megaphone, Settings, LogOut, Building2, Receipt, MessageCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../contexts/AuthContext'
+import { useConversations } from '../../contexts/ConversationsContext'
 
 interface NavItem {
   label: string
@@ -52,8 +53,10 @@ const NAV: NavGroup[] = [
 ]
 
 export default function Sidebar() {
-  const { agency, user, logout } = useAuth()
+  const { agency, logout } = useAuth()
+  const { conversations } = useConversations()
   const navigate = useNavigate()
+  const unreadMessages = conversations.reduce((s, c) => s + c.unread_count, 0)
 
   function handleLogout() {
     logout()
@@ -79,19 +82,14 @@ export default function Sidebar() {
 
       {/* Agency badge */}
       {agency && (
-        <button
-          onClick={() => navigate('/select-agency')}
-          className="mx-4 mt-4 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 transition group text-left"
-        >
+        <div className="mx-4 mt-4 flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/10">
           <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
             <Building2 className="w-3.5 h-3.5 text-secondary" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-white text-xs font-semibold truncate">{agency.name}</p>
-            <p className="text-primary-300 text-[10px] truncate">Switch agency</p>
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-primary-300 group-hover:text-white transition" />
-        </button>
+        </div>
       )}
 
       {/* Nav */}
@@ -114,7 +112,12 @@ export default function Sidebar() {
                   }
                 >
                   <item.icon className="w-4 h-4 shrink-0" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.href === '/messages' && unreadMessages > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-error text-white text-[10px] font-bold">
+                      {unreadMessages > 9 ? '9+' : unreadMessages}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </div>
@@ -127,12 +130,12 @@ export default function Sidebar() {
         <div className="flex items-center gap-2 px-3 py-2 mb-2">
           <div className="w-7 h-7 rounded-full bg-secondary/20 flex items-center justify-center">
             <span className="text-secondary text-[11px] font-bold">
-              {user?.full_name?.[0]?.toUpperCase() ?? 'A'}
+              {agency?.name?.[0]?.toUpperCase() ?? 'A'}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white text-xs font-medium truncate">{user?.full_name ?? 'Agent'}</p>
-            <p className="text-primary-400 text-[10px] truncate">{user?.email ?? user?.phone_number}</p>
+            <p className="text-white text-xs font-medium truncate">{agency?.name ?? 'Agency'}</p>
+            <p className="text-primary-400 text-[10px] truncate">{agency?.login_email}</p>
           </div>
         </div>
         <button

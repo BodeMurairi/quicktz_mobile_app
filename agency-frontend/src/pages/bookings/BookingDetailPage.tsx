@@ -1,52 +1,33 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Printer, XCircle, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Printer, XCircle, CheckCircle2, Send, MessageCircle, Mail } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import jsPDF from 'jspdf'
 import Header from '../../components/layout/Header'
 import { Card } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
+import Modal from '../../components/ui/Modal'
+import { FormField, Input, Textarea } from '../../components/ui/FormField'
 import { bookingApi } from '../../api/bookings'
+import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
 import { formatCurrency, formatDateTime, statusColor } from '../../utils/format'
 import type { Booking } from '../../types'
 
 type BadgeColor = 'primary' | 'success' | 'warning' | 'error' | 'secondary' | 'default'
 
-function printTicket(b: Booking) {
-  const doc = new jsPDF({ unit: 'mm', format: [80, 200] })
-  doc.setFontSize(14)
-  doc.setFont('helvetica', 'bold')
-  doc.text('QuickTZ', 40, 15, { align: 'center' })
-  doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
-  doc.text('BOARDING PASS', 40, 22, { align: 'center' })
-  doc.line(5, 26, 75, 26)
-  const y = 34
-  const rows = [
-    ['Passenger', b.passenger_name],
-    ['Phone', b.passenger_phone ?? '—'],
-    ['From', b.trip?.route?.origin ?? '—'],
-    ['To', b.trip?.route?.destination ?? '—'],
-    ['Departure', b.trip ? formatDateTime(b.trip.departure_datetime) : '—'],
-    ['Seat', b.seat_number ? String(b.seat_number) : 'Any'],
-    ['Price', formatCurrency(b.total_price)],
-    ['Status', b.status.toUpperCase()],
-    ['Ticket Code', b.ticket?.ticket_code ?? '—'],
-    ['Booking ID', b.id.slice(0, 12).toUpperCase()],
-  ]
-  rows.forEach(([label, val], i) => {
-    doc.setFont('helvetica', 'bold')
-    doc.text(`${label}:`, 8, y + i * 8)
-    doc.setFont('helvetica', 'normal')
-    doc.text(val, 38, y + i * 8)
-  })
-  doc.save(`ticket-${b.id.slice(0, 8)}.pdf`)
-}
-
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { agency } = useAuth()
+  const toast = useToast()
+
+  const [sendMenuOpen, setSendMenuOpen] = useState(false)
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [emailTo, setEmailTo] = useState('')
+  const [emailSubject, setEmailSubject] = useState('')
+  const [emailBody, setEmailBody] = useState('')
 
   const { data: booking, isLoading, isError } = useQuery({
     queryKey: ['booking', id],
@@ -64,11 +45,47 @@ export default function BookingDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['booking', id] }),
   })
 
+  const sendMessageMutation = useMutation({
+    mutationFn: () => bookingApi.sendTicketMessage(id!, agency!.id),
+    onSuccess: () => {
+      setSendMenuOpen(false)
+      qc.invalidateQueries({ queryKey: ['conversations', agency?.id] })
+      toast.success('Ticket sent via message.')
+    },
+    onError: () => toast.error('Could not send the ticket via message.'),
+  })
+
+  const sendEmailMutation = useMutation({
+    mutationFn: () => bookingApi.sendTicketEmail(id!, agency!.id, { to: emailTo, subject: emailSubject, body: emailBody }),
+    onSuccess: () => {
+      setEmailModalOpen(false)
+      toast.success(`Ticket emailed to ${emailTo}.`)
+    },
+    onError: (e: Error) => toast.error(e.message || 'Could not send the email.'),
+  })
+
   if (isLoading) return <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>
   if (isError || !booking) return <div className="text-center py-16 text-error">Booking not found</div>
 
   const route = booking.trip?.route
   const trip  = booking.trip
+  const hasTicket = !!booking.ticket
+
+  function openEmailModal() {
+    if (!booking) return
+    setSendMenuOpen(false)
+    setEmailTo('')
+    setEmailSubject(
+      route ? `Your QuickTZ ticket — ${route.origin} → ${route.destination}` : 'Your QuickTZ ticket'
+    )
+    setEmailBody(
+      `Hi ${booking.passenger_name},\n\nHere is your ticket for your upcoming trip` +
+      (route ? ` from ${route.origin} to ${route.destination}` : '') +
+      (trip ? `, departing ${formatDateTime(trip.departure_datetime)}.` : '.') +
+      `\n\nSee the attached PDF for your QR boarding pass.\n\nSafe travels,\n${agency?.name ?? 'QuickTZ'}`
+    )
+    setEmailModalOpen(true)
+  }
 
   return (
     <div>
@@ -97,6 +114,9 @@ export default function BookingDetailPage() {
                 />
               </div>
               <p className="text-xs text-gray-400">Booked on {formatDateTime(booking.created_at)}</p>
+              {booking.status === 'pending_approval' && (
+                <p className="text-xs text-warning mt-1">Waiting for the rider to approve &amp; confirm payment in the app.</p>
+              )}
             </div>
             <div className="flex gap-2">
               {booking.status === 'pending' && (
@@ -109,7 +129,7 @@ export default function BookingDetailPage() {
                   Confirm
                 </Button>
               )}
-              {['pending', 'confirmed'].includes(booking.status) && (
+              {['pending', 'pending_approval', 'confirmed'].includes(booking.status) && (
                 <Button
                   variant="danger"
                   size="sm"
@@ -124,10 +144,44 @@ export default function BookingDetailPage() {
                 variant="outline"
                 size="sm"
                 leftIcon={<Printer className="w-3.5 h-3.5" />}
-                onClick={() => printTicket(booking)}
+                disabled={!hasTicket}
+                onClick={() => window.open(bookingApi.ticketPdfUrl(booking.id), '_blank')}
               >
                 Print ticket
               </Button>
+              <div className="relative">
+                <Button
+                  size="sm"
+                  leftIcon={<Send className="w-3.5 h-3.5" />}
+                  disabled={!hasTicket}
+                  title={hasTicket ? undefined : 'No ticket to send yet'}
+                  onClick={() => setSendMenuOpen(o => !o)}
+                >
+                  Send ticket
+                </Button>
+                {sendMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setSendMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-modal border border-gray-100 py-1 z-20">
+                      <button
+                        onClick={() => sendMessageMutation.mutate()}
+                        disabled={sendMessageMutation.isPending}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-dark hover:bg-gray-50 transition text-left disabled:opacity-50"
+                      >
+                        <MessageCircle className="w-4 h-4 text-primary" />
+                        {sendMessageMutation.isPending ? 'Sending…' : 'Send via message'}
+                      </button>
+                      <button
+                        onClick={openEmailModal}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-dark hover:bg-gray-50 transition text-left"
+                      >
+                        <Mail className="w-4 h-4 text-primary" />
+                        Send via email
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </Card>
 
@@ -199,6 +253,34 @@ export default function BookingDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Send via email modal */}
+      <Modal open={emailModalOpen} onClose={() => setEmailModalOpen(false)} title="Send ticket via email">
+        <div className="space-y-4">
+          <FormField label="To" required>
+            <Input type="email" value={emailTo} onChange={e => setEmailTo(e.target.value)} placeholder="customer@example.com" />
+          </FormField>
+          <FormField label="Subject" required>
+            <Input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} />
+          </FormField>
+          <FormField label="Message" required>
+            <Textarea rows={7} value={emailBody} onChange={e => setEmailBody(e.target.value)} />
+          </FormField>
+          <p className="text-xs text-gray-400">
+            The ticket PDF (quicktz-{booking.ticket?.ticket_code}.pdf) will be attached automatically.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setEmailModalOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => sendEmailMutation.mutate()}
+              disabled={!emailTo.trim() || !emailSubject.trim() || !emailBody.trim()}
+              loading={sendEmailMutation.isPending}
+            >
+              Send
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

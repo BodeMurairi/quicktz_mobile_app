@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
-  Bell, Search, RefreshCw, Ticket, Star, DollarSign, Info, CheckCheck,
+  Bell, Search, RefreshCw, Ticket, Star, DollarSign, Info, CheckCheck, MessageCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useAuth } from '../../contexts/AuthContext'
+import { useConversations } from '../../contexts/ConversationsContext'
 import Modal from '../ui/Modal'
-import { mockAgencyNotifications } from '../../utils/mockData'
+import { bookingApi } from '../../api/bookings'
+import { reviewApi } from '../../api/reviews'
 import { formatDateTime } from '../../utils/format'
 import type { AgencyNotification, AgencyNotificationType } from '../../types'
 
@@ -33,6 +36,7 @@ const NOTIF_ICON: Record<AgencyNotificationType, React.ComponentType<{ className
   review: Star,
   payment: DollarSign,
   system: Info,
+  message: MessageCircle,
 }
 
 const NOTIF_COLOR: Record<AgencyNotificationType, string> = {
@@ -40,16 +44,68 @@ const NOTIF_COLOR: Record<AgencyNotificationType, string> = {
   review: 'text-warning bg-amber-100',
   payment: 'text-success bg-green-100',
   system: 'text-gray-500 bg-gray-100',
+  message: 'text-primary bg-primary/10',
 }
 
 export default function Header({ title, subtitle, actions }: HeaderProps) {
   const { agency } = useAuth()
+  const { conversations } = useConversations()
   const navigate = useNavigate()
 
   const [showSearch, setShowSearch] = useState(false)
   const [query, setQuery] = useState('')
   const [showNotifications, setShowNotifications] = useState(false)
-  const [notifications, setNotifications] = useState<AgencyNotification[]>(mockAgencyNotifications)
+  // Session-only — there's no backend log for this synthesized feed, so "read"
+  // state (unlike rider notifications) isn't persisted across reloads.
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
+
+  const { data: recentBookings = [] } = useQuery({
+    queryKey: ['dashboard-recent-transactions', agency?.id],
+    queryFn: () => bookingApi.listTransactions({ agency_id: agency!.id, page: 1, size: 5 }).then(r => r.items),
+    enabled: !!agency,
+  })
+  const { data: reviews = [] } = useQuery({
+    queryKey: ['reviews', agency?.id],
+    queryFn: () => reviewApi.listByAgency(agency!.id),
+    enabled: !!agency,
+  })
+
+  const notifications = useMemo<AgencyNotification[]>(() => {
+    const bookingNotifs: AgencyNotification[] = recentBookings.map(b => ({
+      id: `booking-${b.id}`,
+      type: 'booking',
+      title: 'New booking received',
+      description: `${b.passenger_name} booked ${b.trip?.route ? `${b.trip.route.origin} → ${b.trip.route.destination}` : 'a trip'}.`,
+      created_at: b.created_at,
+      read: dismissedIds.has(`booking-${b.id}`),
+      href: '/bookings',
+    }))
+    const reviewNotifs: AgencyNotification[] = reviews
+      .filter(r => !r.reply)
+      .map(r => ({
+        id: `review-${r.id}`,
+        type: 'review' as const,
+        title: 'New review needs a reply',
+        description: `${r.customer_name} left a ${r.rating}-star review${r.comment ? ` — "${r.comment}"` : ''}.`,
+        created_at: r.created_at,
+        read: dismissedIds.has(`review-${r.id}`),
+        href: '/customers',
+      }))
+    const messageNotifs: AgencyNotification[] = conversations
+      .filter(c => c.unread_count > 0)
+      .map(c => ({
+        id: `message-${c.id}`,
+        type: 'message' as const,
+        title: `New message from ${c.customer_name}`,
+        description: c.last_message?.text ?? 'You have unread messages.',
+        created_at: c.last_message?.created_at ?? c.created_at,
+        read: dismissedIds.has(`message-${c.id}`),
+        href: '/messages',
+      }))
+    return [...bookingNotifs, ...reviewNotifs, ...messageNotifs]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 10)
+  }, [recentBookings, reviews, conversations, dismissedIds])
 
   const unreadCount = notifications.filter(n => !n.read).length
 
@@ -66,13 +122,13 @@ export default function Header({ title, subtitle, actions }: HeaderProps) {
   }
 
   function openNotification(n: AgencyNotification) {
-    setNotifications(prev => prev.map(x => (x.id === n.id ? { ...x, read: true } : x)))
+    setDismissedIds(prev => new Set(prev).add(n.id))
     if (n.href) navigate(n.href)
     setShowNotifications(false)
   }
 
   function markAllRead() {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    setDismissedIds(new Set(notifications.map(n => n.id)))
   }
 
   return (

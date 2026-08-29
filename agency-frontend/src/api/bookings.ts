@@ -1,5 +1,5 @@
-import { apiClient } from './client'
-import type { Booking, BookingCreate, BookingStatus } from '../types'
+import { apiClient, BASE_URL } from './client'
+import type { Booking, BookingCreate, BookingStatus, ChatMessage } from '../types'
 
 export const bookingApi = {
   list: async (params?: {
@@ -21,6 +21,7 @@ export const bookingApi = {
     payment_method?: string
     from_date?: string
     to_date?: string
+    passenger_phone?: string
     page?: number
     size?: number
   }): Promise<{ items: Booking[]; total: number }> => {
@@ -48,6 +49,15 @@ export const bookingApi = {
     return data
   },
 
+  // Agency dashboard's manual booking. If the passenger's phone matches a real
+  // rider account, the booking comes back `pending_approval` — the rider must
+  // confirm + pay in the app before a ticket exists. Otherwise it's an
+  // accountless walk-in and comes back instant-confirmed, same as before.
+  createManual: async (agencyId: string, payload: BookingCreate): Promise<Booking> => {
+    const { data } = await apiClient.post<Booking>('/bookings/manual', { agency_id: agencyId, ...payload })
+    return data
+  },
+
   cancel: async (id: string): Promise<Booking> => {
     const { data } = await apiClient.patch<Booking>(`/bookings/${id}/cancel`)
     return data
@@ -56,5 +66,22 @@ export const bookingApi = {
   confirm: async (id: string): Promise<Booking> => {
     const { data } = await apiClient.patch<Booking>(`/bookings/${id}/confirm`)
     return data
+  },
+
+  ticketPdfUrl: (bookingId: string): string => `${BASE_URL}/bookings/${bookingId}/ticket.pdf`,
+
+  sendTicketMessage: async (bookingId: string, agencyId: string): Promise<ChatMessage> => {
+    const { data } = await apiClient.post<ChatMessage>(`/bookings/${bookingId}/send-ticket-message`, {
+      agency_id: agencyId,
+    })
+    return data
+  },
+
+  sendTicketEmail: async (
+    bookingId: string,
+    agencyId: string,
+    payload: { to: string; subject: string; body: string }
+  ): Promise<void> => {
+    await apiClient.post(`/bookings/${bookingId}/send-ticket-email`, { agency_id: agencyId, ...payload })
   },
 }

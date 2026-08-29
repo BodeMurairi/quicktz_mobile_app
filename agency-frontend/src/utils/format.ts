@@ -1,7 +1,5 @@
 import { format, parseISO, isValid } from 'date-fns'
 
-export const COMMISSION_RATE = 0.03
-
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('fr-TG', {
     minimumFractionDigits: 0,
@@ -23,20 +21,13 @@ export function formatTime(iso: string | null | undefined): string {
   return formatDate(iso, 'HH:mm')
 }
 
-export function netRevenue(gross: number): number {
-  return gross * (1 - COMMISSION_RATE)
-}
-
-export function commissionAmount(gross: number): number {
-  return gross * COMMISSION_RATE
-}
-
 export function statusColor(status: string): string {
   const map: Record<string, string> = {
     confirmed: 'success',
     completed: 'success',
     active:    'success',
     pending:   'warning',
+    pending_approval: 'warning',
     scheduled: 'primary',
     delayed:   'warning',
     cancelled: 'error',

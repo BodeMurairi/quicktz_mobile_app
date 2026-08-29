@@ -7,7 +7,7 @@ import { FormField, Input, Select, Textarea } from '../components/ui/FormField'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function SettingsPage() {
-  const { agency, user } = useAuth()
+  const { agency } = useAuth()
   const [saved, setSaved] = useState(false)
 
   function handleSave() {
@@ -119,16 +119,12 @@ export default function SettingsPage() {
             </div>
             <div className="space-y-3 text-sm">
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">Name</p>
-                <p className="font-medium text-dark">{user?.full_name ?? '—'}</p>
+                <p className="text-xs text-gray-400 mb-0.5">Agency name</p>
+                <p className="font-medium text-dark">{agency?.name ?? '—'}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">Email</p>
-                <p className="font-medium text-dark">{user?.email ?? '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-0.5">Phone</p>
-                <p className="font-medium text-dark">{user?.phone_number ?? '—'}</p>
+                <p className="text-xs text-gray-400 mb-0.5">Login email</p>
+                <p className="font-medium text-dark">{agency?.login_email ?? '—'}</p>
               </div>
             </div>
             <Button variant="outline" size="sm" className="mt-4 w-full justify-center">
