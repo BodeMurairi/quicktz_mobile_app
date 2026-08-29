@@ -9,6 +9,10 @@ class Agency(Base):
     __tablename__ = "agencies"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    login_email = Column(String, unique=True, nullable=True, index=True)
+    password_hash = Column(String, nullable=True)
+    reset_code_hash = Column(String, nullable=True)
+    reset_code_expires_at = Column(DateTime, nullable=True)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     logo_url = Column(String, nullable=True)

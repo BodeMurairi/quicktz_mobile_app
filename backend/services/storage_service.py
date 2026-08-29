@@ -7,7 +7,7 @@ from config.settings import get_settings
 
 # Buckets are organized by folder so unrelated uploads (agency branding vs.
 # financial documents vs. rider-submitted files) stay easy to browse/audit.
-ALLOWED_FOLDERS = {"logos", "gallery", "receipts", "invoices", "documents"}
+ALLOWED_FOLDERS = {"logos", "gallery", "receipts", "invoices", "documents", "attachments"}
 
 
 def _client(settings):

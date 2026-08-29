@@ -9,7 +9,10 @@ class Booking(Base):
     __tablename__ = "bookings"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    # Nullable: a walk-in booked by agency staff with no matching rider account has
+    # no real user to attribute it to — there's no more "staff" User to fall back to
+    # now that agencies authenticate as their own account type, not via User.
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
     trip_id = Column(String, ForeignKey("trips.id"), nullable=False)
     seat_number = Column(Integer, nullable=True)
     passenger_name = Column(String, nullable=False)
@@ -23,3 +26,4 @@ class Booking(Base):
     trip = relationship("Trip", back_populates="bookings")
     ticket = relationship("Ticket", back_populates="booking", uselist=False, lazy="selectin")
     payment = relationship("Payment", back_populates="booking", uselist=False, lazy="selectin")
+    review = relationship("Review", back_populates="booking", uselist=False, lazy="selectin")

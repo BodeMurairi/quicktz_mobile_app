@@ -2,11 +2,15 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from data.database import get_db
-from schemas.auth import RegisterRequest, LoginRequest, TokenResponse, RefreshRequest
+from schemas.auth import (
+    RegisterRequest, LoginRequest, TokenResponse, RefreshRequest,
+    ForgotPasswordRequest, ResetPasswordRequest,
+)
 from schemas.user import UserResponse
 from services.auth_service import (
     register_user, authenticate_user,
     create_access_token, create_refresh_token, decode_token, get_user_by_id,
+    request_password_reset, reset_password,
 )
 from middleware.auth import get_current_user
 from models.user import User
@@ -48,3 +52,17 @@ async def refresh(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/forgot-password")
+async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Always returns the same generic response, whether or not the email is
+    registered — otherwise the response itself would leak which emails exist."""
+    await request_password_reset(db, data.email)
+    return {"detail": "If that email is registered, a reset code has been sent."}
+
+
+@router.post("/reset-password")
+async def reset_password_route(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    await reset_password(db, data.email, data.code, data.new_password)
+    return {"detail": "Password reset successfully."}

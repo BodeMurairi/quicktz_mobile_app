@@ -21,6 +21,8 @@ class AgencyDayHours(BaseModel):
 
 
 class AgencyResponse(BaseModel):
+    """Public shape — never includes login_email/password_hash. Safe for riders
+    browsing agencies (mobile app) as well as the agency's own dashboard."""
     id: str
     name: str
     description: Optional[str]
@@ -38,6 +40,11 @@ class AgencyResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AgencyMeResponse(AgencyResponse):
+    """Authenticated agency's view of itself — includes its own login email."""
+    login_email: str
+
+
 class AgencyCreate(BaseModel):
     name: str
     description: Optional[str] = None
@@ -49,6 +56,26 @@ class AgencyCreate(BaseModel):
     locations: Optional[List[AgencyLocation]] = None
     contacts: Optional[List[AgencyContact]] = None
     opening_hours: Optional[Dict[str, AgencyDayHours]] = None
+
+
+class AgencyRegisterRequest(AgencyCreate):
+    login_email: str
+    password: str
+
+
+class AgencyLoginRequest(BaseModel):
+    login_email: str
+    password: str
+
+
+class AgencyForgotPasswordRequest(BaseModel):
+    login_email: str
+
+
+class AgencyResetPasswordRequest(BaseModel):
+    login_email: str
+    code: str
+    new_password: str
 
 
 class AgencyUpdate(BaseModel):

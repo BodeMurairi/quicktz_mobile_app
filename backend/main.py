@@ -8,7 +8,10 @@ from config.settings import settings
 from data.database import engine, Base
 import models  # noqa: F401 — registers all ORM models with Base
 
-from controller import auth, users, agencies, trips, routes, bookings, tickets, notifications, agent_chat, uploads
+from controller import (
+    auth, agency_auth, users, agencies, trips, routes, bookings, tickets, notifications, agent_chat, uploads,
+    conversations,
+)
 
 
 @asynccontextmanager
@@ -37,6 +40,7 @@ app.add_middleware(
 
 PREFIX = "/api/v1"
 app.include_router(auth.router, prefix=f"{PREFIX}/auth", tags=["Auth"])
+app.include_router(agency_auth.router, prefix=f"{PREFIX}/agency-auth", tags=["Agency Auth"])
 app.include_router(users.router, prefix=f"{PREFIX}/users", tags=["Users"])
 app.include_router(agencies.router, prefix=f"{PREFIX}/agencies", tags=["Agencies"])
 app.include_router(trips.router, prefix=f"{PREFIX}/trips", tags=["Trips"])
@@ -46,6 +50,7 @@ app.include_router(tickets.router, prefix=f"{PREFIX}/tickets", tags=["Tickets"])
 app.include_router(notifications.router, prefix=f"{PREFIX}/notifications", tags=["Notifications"])
 app.include_router(agent_chat.router, prefix=f"{PREFIX}/agent", tags=["AI Agent"])
 app.include_router(uploads.router, prefix=f"{PREFIX}/uploads", tags=["Uploads"])
+app.include_router(conversations.router, prefix=f"{PREFIX}/conversations", tags=["Conversations"])
 
 
 @app.get("/", tags=["Health"])
@@ -56,6 +61,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=5000,
+        port=8000,
         reload=True
     )

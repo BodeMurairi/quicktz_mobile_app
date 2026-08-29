@@ -15,7 +15,10 @@ from models.payment import Payment
 from models.trip import Trip
 from models.route import Route
 from models.user import User
+from models.agency import Agency
 from schemas.booking import BookingCreate
+from schemas.notification import NotificationCreate
+from services.notification_service import create_notification
 
 # Every response that nests `trip` (-> route -> agency), `payment`, and `ticket` needs
 # this full chain eagerly loaded, or serialization crashes under async (lazy-load
@@ -24,6 +27,7 @@ _BOOKING_OPTIONS = (
     selectinload(Booking.trip).selectinload(Trip.route).selectinload(Route.agency),
     selectinload(Booking.payment),
     selectinload(Booking.ticket),
+    selectinload(Booking.review),
 )
 
 
@@ -41,7 +45,7 @@ async def _refetch_booking(db: AsyncSession, booking_id: str) -> Booking:
     return booking
 
 
-async def create_booking(db: AsyncSession, user_id: str, data: BookingCreate) -> Booking:
+async def create_booking(db: AsyncSession, user_id: Optional[str], data: BookingCreate) -> Booking:
     result = await db.execute(select(Trip).where(Trip.id == data.trip_id))
     trip = result.scalar_one_or_none()
     if not trip:
@@ -147,6 +151,91 @@ async def instant_booking(db: AsyncSession, user: User, trip_id: str) -> Booking
     return await _refetch_booking(db, booking.id)
 
 
+async def create_manual_booking(
+    db: AsyncSession, agency_id: str, data: BookingCreate
+) -> Booking:
+    """Agency dashboard's manual booking. If the passenger's phone matches a real
+    rider account, the booking is created under THAT account and left pending —
+    the rider must open the app and approve (and pay) before a ticket exists.
+    Otherwise (a walk-in with no app account), instant-confirms with no user_id —
+    there's no "staff" account to attribute it to anymore, agencies authenticate
+    as their own entity, not via a User row."""
+    result = await db.execute(select(Trip).where(Trip.id == data.trip_id).options(selectinload(Trip.route)))
+    trip = result.scalar_one_or_none()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    if not trip.route or trip.route.agency_id != agency_id:
+        raise HTTPException(status_code=404, detail="Trip not found for this agency")
+    if trip.available_seats < 1:
+        raise HTTPException(status_code=400, detail="No seats available")
+
+    customer = None
+    if data.passenger_phone:
+        customer_result = await db.execute(select(User).where(User.phone_number == data.passenger_phone))
+        customer = customer_result.scalar_one_or_none()
+
+    if not customer:
+        return await create_booking(db, None, data)
+
+    booking = Booking(
+        id=str(uuid.uuid4()),
+        user_id=customer.id,
+        trip_id=data.trip_id,
+        seat_number=data.seat_number,
+        passenger_name=data.passenger_name,
+        passenger_phone=data.passenger_phone,
+        total_price=trip.price,
+        status="pending_approval",
+    )
+    db.add(booking)
+    trip.available_seats -= 1
+    await db.commit()
+
+    agency_result = await db.execute(select(Agency).where(Agency.id == agency_id))
+    agency = agency_result.scalar_one_or_none()
+    route_label = f"{trip.route.origin} → {trip.route.destination}" if trip.route else "a trip"
+    await create_notification(db, NotificationCreate(
+        user_id=customer.id,
+        title="Confirm your booking",
+        body=f"{agency.name if agency else 'An agency'} booked {route_label} for you — review and confirm to get your ticket.",
+        type="booking",
+    ))
+
+    return await _refetch_booking(db, booking.id)
+
+
+async def approve_booking(db: AsyncSession, booking_id: str, user_id: str, payment_method: str) -> Booking:
+    """The rider's side of the manual-booking flow above — confirms the booking
+    and pays, which is what actually generates the ticket."""
+    booking = await get_booking(db, booking_id, user_id)
+    if booking.status != "pending_approval":
+        raise HTTPException(status_code=400, detail="This booking isn't awaiting approval")
+
+    ticket_code = _generate_ticket_code()
+    qr_data = json.dumps({"code": ticket_code, "trip": booking.trip_id, "passenger": booking.passenger_name})
+    ticket = Ticket(
+        id=str(uuid.uuid4()), booking_id=booking.id, ticket_code=ticket_code,
+        qr_data=qr_data, status="active",
+    )
+    db.add(ticket)
+
+    payment = Payment(
+        id=str(uuid.uuid4()), booking_id=booking.id, amount=booking.total_price,
+        payment_method=payment_method, status="completed", paid_at=datetime.utcnow(),
+    )
+    db.add(payment)
+
+    booking.status = "confirmed"
+    await db.commit()
+    # `booking` was loaded (via get_booking's selectinload) before ticket/payment
+    # existed, so its cached ticket/payment relationships are stale None — expire
+    # just this instance so the refetch below actually re-reads them. Use the
+    # `booking_id` parameter (not booking.id) below — expiring the instance means
+    # accessing any attribute on it, even .id, triggers a synchronous reload.
+    db.expire(booking)
+    return await _refetch_booking(db, booking_id)
+
+
 async def get_user_bookings(db: AsyncSession, user_id: str) -> List[Booking]:
     result = await db.execute(
         select(Booking)
@@ -220,6 +309,7 @@ async def list_agency_bookings(
     payment_method: Optional[str] = None,
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
+    passenger_phone: Optional[str] = None,
     page: int = 1,
     size: int = 20,
 ) -> Tuple[List[Booking], int]:
@@ -229,6 +319,8 @@ async def list_agency_bookings(
         .join(Route, Trip.route_id == Route.id)
         .where(Route.agency_id == agency_id)
     )
+    if passenger_phone:
+        base_query = base_query.where(Booking.passenger_phone == passenger_phone)
     if payment_method:
         base_query = base_query.join(Payment, Payment.booking_id == Booking.id).where(
             Payment.payment_method == payment_method

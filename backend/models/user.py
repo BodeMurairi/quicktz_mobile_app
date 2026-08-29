@@ -16,6 +16,8 @@ class User(Base):
     is_premium = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
+    reset_code_hash = Column(String, nullable=True)
+    reset_code_expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
